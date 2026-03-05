@@ -1,8 +1,9 @@
 
 "use client"
 
-import { useCollection, useFirestore } from '@/firebase';
-import { collection, doc, updateDoc } from 'firebase/firestore';
+import { useMemo } from 'react';
+import { useCollection, useFirestore, useUser } from '@/firebase';
+import { collection, doc, updateDoc, query, where } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -13,8 +14,15 @@ import { FirestorePermissionError } from '@/firebase/errors';
 
 export default function QueriesPage() {
   const db = useFirestore();
-  const { data: queries = [], loading } = useCollection(db ? collection(db, 'hrQueries') : null);
+  const { user } = useUser();
   const { toast } = useToast();
+
+  const hrQueriesQuery = useMemo(() => {
+    if (!db || !user) return null;
+    return query(collection(db, 'hrQueries'), where('userId', '==', user.uid));
+  }, [db, user]);
+
+  const { data: queries = [], loading } = useCollection(hrQueriesQuery);
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {

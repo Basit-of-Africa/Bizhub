@@ -2,8 +2,8 @@
 "use client"
 
 import { useState, useMemo } from 'react';
-import { useCollection, useFirestore } from '@/firebase';
-import { collection, addDoc } from 'firebase/firestore';
+import { useCollection, useFirestore, useUser } from '@/firebase';
+import { collection, addDoc, query, where } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -25,10 +25,17 @@ import { FirestorePermissionError } from '@/firebase/errors';
 
 export default function EmployeesPage() {
   const db = useFirestore();
-  const { data: employees = [], loading } = useCollection(db ? collection(db, 'employees') : null);
+  const { user } = useUser();
+  const { toast } = useToast();
+
+  const employeesQuery = useMemo(() => {
+    if (!db || !user) return null;
+    return query(collection(db, 'employees'), where('userId', '==', user.uid));
+  }, [db, user]);
+
+  const { data: employees = [], loading } = useCollection(employeesQuery);
   const [searchQuery, setSearchQuery] = useState('');
   const [isAdding, setIsAdding] = useState(false);
-  const { toast } = useToast();
 
   const filteredEmployees = useMemo(() => {
     return employees.filter(e => 
@@ -49,10 +56,11 @@ export default function EmployeesPage() {
 
   const handleAddEmployee = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!db) return;
+    if (!db || !user) return;
 
     const formData = new FormData(e.currentTarget);
     const newEmployee = {
+      userId: user.uid,
       name: formData.get('name') as string,
       role: formData.get('role') as string,
       department: formData.get('department') as string,

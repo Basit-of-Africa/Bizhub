@@ -1,11 +1,11 @@
 
 "use client"
 
-import { useCollection, useFirestore } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { useMemo } from 'react';
+import { useCollection, useFirestore, useUser } from '@/firebase';
+import { collection, query, where } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { 
   Users, 
   TrendingUp, 
@@ -20,9 +20,15 @@ import Link from 'next/link';
 
 export default function CRMDashboardPage() {
   const db = useFirestore();
-  const { data: customers = [], loading: loadingCust } = useCollection(db ? collection(db, 'customers') : null);
-  const { data: leads = [], loading: loadingLeads } = useCollection(db ? collection(db, 'leads') : null);
-  const { data: interactions = [], loading: loadingInt } = useCollection(db ? collection(db, 'interactions') : null);
+  const { user } = useUser();
+
+  const customersQuery = useMemo(() => user ? query(collection(db, 'customers'), where('userId', '==', user.uid)) : null, [db, user]);
+  const leadsQuery = useMemo(() => user ? query(collection(db, 'leads'), where('userId', '==', user.uid)) : null, [db, user]);
+  const interactionsQuery = useMemo(() => user ? query(collection(db, 'interactions'), where('userId', '==', user.uid)) : null, [db, user]);
+
+  const { data: customers = [], loading: loadingCust } = useCollection(customersQuery);
+  const { data: leads = [], loading: loadingLeads } = useCollection(leadsQuery);
+  const { data: interactions = [], loading: loadingInt } = useCollection(interactionsQuery);
 
   const activeCustomers = customers.filter(c => c.status === 'Active').length;
   const newLeads = leads.filter(l => l.stage !== 'Closed Won' && l.stage !== 'Closed Lost').length;

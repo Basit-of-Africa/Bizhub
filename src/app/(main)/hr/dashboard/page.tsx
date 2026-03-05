@@ -1,8 +1,9 @@
 
 "use client"
 
-import { useCollection, useFirestore } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { useMemo } from 'react';
+import { useCollection, useFirestore, useUser } from '@/firebase';
+import { collection, query, where } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -19,9 +20,15 @@ import Link from 'next/link';
 
 export default function HRDashboardPage() {
   const db = useFirestore();
-  const { data: employees = [], loading: loadingEmp } = useCollection(db ? collection(db, 'employees') : null);
-  const { data: leaveRequests = [], loading: loadingLeave } = useCollection(db ? collection(db, 'leaveRequests') : null);
-  const { data: hrQueries = [], loading: loadingQueries } = useCollection(db ? collection(db, 'hrQueries') : null);
+  const { user } = useUser();
+
+  const employeesQuery = useMemo(() => user ? query(collection(db, 'employees'), where('userId', '==', user.uid)) : null, [db, user]);
+  const leaveRequestsQuery = useMemo(() => user ? query(collection(db, 'leaveRequests'), where('userId', '==', user.uid)) : null, [db, user]);
+  const hrQueriesQuery = useMemo(() => user ? query(collection(db, 'hrQueries'), where('userId', '==', user.uid)) : null, [db, user]);
+
+  const { data: employees = [], loading: loadingEmp } = useCollection(employeesQuery);
+  const { data: leaveRequests = [], loading: loadingLeave } = useCollection(leaveRequestsQuery);
+  const { data: hrQueries = [], loading: loadingQueries } = useCollection(hrQueriesQuery);
 
   const activeEmployees = employees.filter(e => e.status === 'Active').length;
   const onboarding = employees.filter(e => e.status === 'Onboarding').length;

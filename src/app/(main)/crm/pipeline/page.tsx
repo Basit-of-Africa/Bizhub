@@ -1,9 +1,9 @@
 
 "use client"
 
-import { useState } from 'react';
-import { useCollection, useFirestore } from '@/firebase';
-import { collection, addDoc, doc, updateDoc } from 'firebase/firestore';
+import { useMemo } from 'react';
+import { useCollection, useFirestore, useUser } from '@/firebase';
+import { collection, query, where, doc, updateDoc } from 'firebase/firestore';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -14,8 +14,7 @@ import {
   MoreVertical,
   Target,
   Plus,
-  Loader2,
-  ChevronRight
+  Loader2
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -29,8 +28,15 @@ import { FirestorePermissionError } from '@/firebase/errors';
 
 export default function PipelinePage() {
   const db = useFirestore();
-  const { data: leads = [], loading } = useCollection(db ? collection(db, 'leads') : null);
+  const { user } = useUser();
   const { toast } = useToast();
+
+  const leadsQuery = useMemo(() => {
+    if (!db || !user) return null;
+    return query(collection(db, 'leads'), where('userId', '==', user.uid));
+  }, [db, user]);
+
+  const { data: leads = [], loading } = useCollection(leadsQuery);
 
   const stages = ['Discovery', 'Proposal', 'Negotiation', 'Closed Won', 'Closed Lost'];
 

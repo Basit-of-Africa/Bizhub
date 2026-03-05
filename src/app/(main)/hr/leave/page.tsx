@@ -1,8 +1,9 @@
 
 "use client"
 
-import { useCollection, useFirestore } from '@/firebase';
-import { collection, doc, updateDoc } from 'firebase/firestore';
+import { useMemo } from 'react';
+import { useCollection, useFirestore, useUser } from '@/firebase';
+import { collection, doc, updateDoc, query, where } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -14,8 +15,15 @@ import { FirestorePermissionError } from '@/firebase/errors';
 
 export default function LeavePage() {
   const db = useFirestore();
-  const { data: requests = [], loading } = useCollection(db ? collection(db, 'leaveRequests') : null);
+  const { user } = useUser();
   const { toast } = useToast();
+
+  const leaveRequestsQuery = useMemo(() => {
+    if (!db || !user) return null;
+    return query(collection(db, 'leaveRequests'), where('userId', '==', user.uid));
+  }, [db, user]);
+
+  const { data: requests = [], loading } = useCollection(leaveRequestsQuery);
 
   const getStatusVariant = (status: string) => {
     switch (status) {

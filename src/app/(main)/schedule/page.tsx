@@ -4,8 +4,7 @@
 import { useState, useMemo } from "react";
 import { format, isSameDay } from "date-fns";
 import { useCollection, useFirestore, useUser } from "@/firebase";
-import { collection, addDoc, deleteDoc, doc, serverTimestamp, query, orderBy } from "firebase/firestore";
-import type { Appointment } from "@/lib/types";
+import { collection, addDoc, deleteDoc, doc, serverTimestamp, query, orderBy, where } from "firebase/firestore";
 
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
@@ -36,7 +35,11 @@ export default function SchedulePage() {
 
   const appointmentsQuery = useMemo(() => {
     if (!db || !user) return null;
-    return query(collection(db, 'appointments'), orderBy('date', 'asc'));
+    return query(
+      collection(db, 'appointments'), 
+      where('userId', '==', user.uid),
+      orderBy('date', 'asc')
+    );
   }, [db, user]);
 
   const { data: appointments = [], loading } = useCollection(appointmentsQuery);
@@ -44,7 +47,7 @@ export default function SchedulePage() {
   const selectedDayAppointments = useMemo(() => {
     if (!selectedDate) return [];
     return appointments.filter((apt: any) => {
-      const date = apt.date?.toDate ? apt.date.toDate() : new Date(apt.date);
+      const date = new Date(apt.date);
       return isSameDay(date, selectedDate);
     });
   }, [appointments, selectedDate]);
@@ -87,7 +90,7 @@ export default function SchedulePage() {
   }
 
   const appointmentDays = useMemo(() => {
-    return appointments.map((apt: any) => apt.date?.toDate ? apt.date.toDate() : new Date(apt.date));
+    return appointments.map((apt: any) => new Date(apt.date));
   }, [appointments]);
 
   return (

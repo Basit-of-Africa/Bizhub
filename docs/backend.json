@@ -6,6 +6,7 @@
       "description": "A client or lead in the CRM.",
       "type": "object",
       "properties": {
+        "userId": { "type": "string", "description": "The ID of the user/business owner." },
         "name": { "type": "string" },
         "company": { "type": "string" },
         "email": { "type": "string", "format": "email" },
@@ -14,13 +15,14 @@
         "totalValue": { "type": "number" },
         "lastContact": { "type": "string", "format": "date-time" }
       },
-      "required": ["name", "email", "status"]
+      "required": ["userId", "name", "email", "status"]
     },
     "Lead": {
       "title": "Lead",
       "description": "A potential deal in the sales pipeline.",
       "type": "object",
       "properties": {
+        "userId": { "type": "string", "description": "The ID of the user/business owner." },
         "title": { "type": "string" },
         "customerName": { "type": "string" },
         "value": { "type": "number" },
@@ -28,26 +30,28 @@
         "probability": { "type": "number" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["title", "customerName", "value", "stage"]
+      "required": ["userId", "title", "customerName", "value", "stage"]
     },
     "Interaction": {
       "title": "Interaction",
       "description": "A touchpoint with a customer.",
       "type": "object",
       "properties": {
+        "userId": { "type": "string", "description": "The ID of the user/business owner." },
         "customerId": { "type": "string" },
         "customerName": { "type": "string" },
         "type": { "type": "string", "enum": ["Call", "Email", "Meeting", "Note"] },
         "content": { "type": "string" },
         "date": { "type": "string", "format": "date-time" }
       },
-      "required": ["customerId", "type", "content", "date"]
+      "required": ["userId", "customerId", "type", "content", "date"]
     },
     "Employee": {
       "title": "Employee",
       "description": "A company team member.",
       "type": "object",
       "properties": {
+        "userId": { "type": "string", "description": "The ID of the user/business owner." },
         "name": { "type": "string" },
         "role": { "type": "string" },
         "department": { "type": "string" },
@@ -55,13 +59,14 @@
         "status": { "type": "string", "enum": ["Active", "Onboarding", "On Leave", "Terminated"] },
         "joinDate": { "type": "string", "format": "date" }
       },
-      "required": ["name", "role", "email", "status"]
+      "required": ["userId", "name", "role", "email", "status"]
     },
     "LeaveRequest": {
       "title": "Leave Request",
       "description": "An employee time-off request.",
       "type": "object",
       "properties": {
+        "userId": { "type": "string", "description": "The ID of the user/business owner." },
         "employeeId": { "type": "string" },
         "employeeName": { "type": "string" },
         "type": { "type": "string", "enum": ["Annual", "Sick", "Maternity", "Unpaid"] },
@@ -70,13 +75,14 @@
         "status": { "type": "string", "enum": ["Pending", "Approved", "Rejected"] },
         "reason": { "type": "string" }
       },
-      "required": ["employeeId", "type", "startDate", "endDate", "status"]
+      "required": ["userId", "employeeId", "type", "startDate", "endDate", "status"]
     },
     "HRQuery": {
       "title": "HR Query",
       "description": "An internal helpdesk ticket.",
       "type": "object",
       "properties": {
+        "userId": { "type": "string", "description": "The ID of the user/business owner." },
         "employeeName": { "type": "string" },
         "subject": { "type": "string" },
         "message": { "type": "string" },
@@ -84,7 +90,20 @@
         "priority": { "type": "string", "enum": ["Low", "Medium", "High"] },
         "date": { "type": "string", "format": "date-time" }
       },
-      "required": ["employeeName", "subject", "message", "status", "priority"]
+      "required": ["userId", "employeeName", "subject", "message", "status", "priority"]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "A financial record.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "date": { "type": "string" },
+        "type": { "type": "string", "enum": ["income", "expense"] },
+        "category": { "type": "string" },
+        "description": { "type": "string" },
+        "amount": { "type": "number" }
+      }
     }
   },
   "auth": {
@@ -96,6 +115,8 @@
     "/interactions/{interactionId}": { "schema": "Interaction", "description": "Client interaction logs." },
     "/employees/{employeeId}": { "schema": "Employee", "description": "Staff members." },
     "/leaveRequests/{requestId}": { "schema": "LeaveRequest", "description": "Time-off requests." },
-    "/hrQueries/{queryId}": { "schema": "HRQuery", "description": "Helpdesk tickets." }
+    "/hrQueries/{queryId}": { "schema": "HRQuery", "description": "Helpdesk tickets." },
+    "/transactions/{transactionId}": { "schema": "Transaction", "description": "Financial records." },
+    "/appointments/{appointmentId}": { "schema": "object", "description": "Calendar appointments." }
   }
 }

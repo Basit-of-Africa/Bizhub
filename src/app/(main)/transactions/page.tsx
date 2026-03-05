@@ -3,7 +3,7 @@
 
 import { useState, useMemo } from 'react';
 import { useCollection, useFirestore, useUser } from '@/firebase';
-import { collection, addDoc, serverTimestamp, query, orderBy } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, query, orderBy, where } from 'firebase/firestore';
 import type { Transaction } from '@/lib/types';
 import TransactionsTable from '@/components/transactions/transactions-table';
 import AddTransactionSheet from '@/components/transactions/add-transaction-sheet';
@@ -19,7 +19,11 @@ export default function TransactionsPage() {
 
   const transactionsQuery = useMemo(() => {
     if (!db || !user) return null;
-    return query(collection(db, 'transactions'), orderBy('date', 'desc'));
+    return query(
+      collection(db, 'transactions'), 
+      where('userId', '==', user.uid),
+      orderBy('date', 'desc')
+    );
   }, [db, user]);
 
   const { data: transactions = [], loading } = useCollection(transactionsQuery);
