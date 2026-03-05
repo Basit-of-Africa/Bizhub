@@ -1,8 +1,11 @@
+
 "use client"
 
 import * as React from "react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
+import { useUser, useAuth } from "@/firebase"
+import { signOut } from "firebase/auth"
 
 import {
   SidebarProvider,
@@ -37,11 +40,28 @@ import {
   Contact,
   TrendingUp,
   CircleDollarSign,
-  History
+  LogOut,
+  Loader2
 } from "lucide-react"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const { user, loading } = useUser()
+  const auth = useAuth()
+  const router = useRouter()
+
+  React.useEffect(() => {
+    if (!loading && !user) {
+      router.push("/login")
+    }
+  }, [user, loading, router])
+
+  const handleSignOut = () => {
+    if (auth) {
+      signOut(auth).then(() => router.push("/login"))
+    }
+  }
 
   const mainNav = [
     { href: "/dashboard", icon: <LayoutDashboard className="h-4 w-4" />, label: "Dashboard" },
@@ -65,6 +85,14 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     { href: "/hr/queries", icon: <MessageSquare className="h-4 w-4" />, label: "Helpdesk" },
     { href: "/hr/training", icon: <GraduationCap className="h-4 w-4" />, label: "Training" },
   ]
+
+  if (loading || !user) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <SidebarProvider>
@@ -149,12 +177,18 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
-              <SidebarMenuButton asChild tooltip="Profile">
-                <Link href="#">
-                  <UserCircle className="h-4 w-4" />
-                  <span>Jane Doe</span>
-                </Link>
-              </SidebarMenuButton>
+              <div className="flex items-center gap-2 p-2">
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={user.photoURL || undefined} />
+                  <AvatarFallback>{user.displayName?.[0] || user.email?.[0]}</AvatarFallback>
+                </Avatar>
+                <div className="flex-1 overflow-hidden">
+                  <p className="text-sm font-medium truncate">{user.displayName || "User"}</p>
+                </div>
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleSignOut}>
+                  <LogOut className="h-4 w-4 text-muted-foreground" />
+                </Button>
+              </div>
             </SidebarMenuItem>
           </SidebarMenu>
         </SidebarFooter>

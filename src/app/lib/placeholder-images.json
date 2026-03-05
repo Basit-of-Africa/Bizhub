@@ -1,0 +1,23 @@
+
+{
+  "placeholderImages": [
+    {
+      "id": "biz-hero",
+      "description": "Professional business environment",
+      "imageUrl": "https://picsum.photos/seed/biz1/1200/600",
+      "imageHint": "business office"
+    },
+    {
+      "id": "team-meeting",
+      "description": "Diverse team collaborating",
+      "imageUrl": "https://picsum.photos/seed/team1/800/600",
+      "imageHint": "team collaboration"
+    },
+    {
+      "id": "fin-analysis",
+      "description": "Financial charts and data",
+      "imageUrl": "https://picsum.photos/seed/fin1/800/600",
+      "imageHint": "data analysis"
+    }
+  ]
+}

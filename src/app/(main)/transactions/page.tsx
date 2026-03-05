@@ -1,22 +1,46 @@
+
 "use client";
 
-import { useState } from 'react';
-import { transactions as initialTransactions } from '@/lib/data';
+import { useState, useMemo } from 'react';
+import { useCollection, useFirestore, useUser } from '@/firebase';
+import { collection, addDoc, serverTimestamp, query, orderBy } from 'firebase/firestore';
 import type { Transaction } from '@/lib/types';
 import TransactionsTable from '@/components/transactions/transactions-table';
 import AddTransactionSheet from '@/components/transactions/add-transaction-sheet';
 import { Button } from '@/components/ui/button';
-import { PlusCircle } from 'lucide-react';
+import { PlusCircle, Loader2 } from 'lucide-react';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 export default function TransactionsPage() {
-  const [transactions, setTransactions] = useState<Transaction[]>(initialTransactions);
+  const db = useFirestore();
+  const { user } = useUser();
   const [isSheetOpen, setIsSheetOpen] = useState(false);
 
+  const transactionsQuery = useMemo(() => {
+    if (!db || !user) return null;
+    return query(collection(db, 'transactions'), orderBy('date', 'desc'));
+  }, [db, user]);
+
+  const { data: transactions = [], loading } = useCollection(transactionsQuery);
+
   const handleAddTransaction = (newTransaction: Omit<Transaction, 'id'>) => {
-    setTransactions(prev => [
-        { ...newTransaction, id: `txn_${Date.now()}` },
-        ...prev
-    ].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+    if (!db || !user) return;
+
+    const data = {
+      ...newTransaction,
+      userId: user.uid,
+      createdAt: serverTimestamp(),
+    };
+
+    addDoc(collection(db, 'transactions'), data)
+      .catch(async () => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: 'transactions',
+          operation: 'create',
+          requestResourceData: data,
+        }));
+      });
   };
 
   return (
@@ -36,7 +60,13 @@ export default function TransactionsPage() {
         </Button>
       </header>
       
-      <TransactionsTable transactions={transactions} />
+      {loading ? (
+        <div className="flex justify-center py-20">
+          <Loader2 className="h-10 w-10 animate-spin text-primary" />
+        </div>
+      ) : (
+        <TransactionsTable transactions={transactions as any} />
+      )}
 
       <AddTransactionSheet 
         isOpen={isSheetOpen}

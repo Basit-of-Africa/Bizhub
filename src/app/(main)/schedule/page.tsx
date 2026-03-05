@@ -1,8 +1,10 @@
+
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { format, isSameDay } from "date-fns";
-import { appointments as initialAppointments } from "@/lib/data";
+import { useCollection, useFirestore, useUser } from "@/firebase";
+import { collection, addDoc, deleteDoc, doc, serverTimestamp, query, orderBy } from "firebase/firestore";
 import type { Appointment } from "@/lib/types";
 
 import { Calendar } from "@/components/ui/calendar";
@@ -10,7 +12,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/componen
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { PlusCircle, Trash2 } from "lucide-react";
+import { PlusCircle, Trash2, Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -21,38 +23,72 @@ import {
   DialogTrigger,
   DialogClose
 } from "@/components/ui/dialog";
+import { errorEmitter } from "@/firebase/error-emitter";
+import { FirestorePermissionError } from "@/firebase/errors";
 
 export default function SchedulePage() {
-  const [appointments, setAppointments] = useState<Appointment[]>(initialAppointments);
+  const db = useFirestore();
+  const { user } = useUser();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [newAppointmentTitle, setNewAppointmentTitle] = useState("");
   const [newAppointmentDesc, setNewAppointmentDesc] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  const selectedDayAppointments = selectedDate
-    ? appointments.filter((apt) => isSameDay(apt.date, selectedDate))
-    : [];
+  const appointmentsQuery = useMemo(() => {
+    if (!db || !user) return null;
+    return query(collection(db, 'appointments'), orderBy('date', 'asc'));
+  }, [db, user]);
+
+  const { data: appointments = [], loading } = useCollection(appointmentsQuery);
+
+  const selectedDayAppointments = useMemo(() => {
+    if (!selectedDate) return [];
+    return appointments.filter((apt: any) => {
+      const date = apt.date?.toDate ? apt.date.toDate() : new Date(apt.date);
+      return isSameDay(date, selectedDate);
+    });
+  }, [appointments, selectedDate]);
 
   const handleAddAppointment = () => {
-    if (newAppointmentTitle && selectedDate) {
-      const newAppointment: Appointment = {
-        id: `apt_${Date.now()}`,
-        date: selectedDate,
+    if (newAppointmentTitle && selectedDate && db && user) {
+      const data = {
+        userId: user.uid,
+        date: selectedDate.toISOString(),
         title: newAppointmentTitle,
         description: newAppointmentDesc,
+        createdAt: serverTimestamp(),
       };
-      setAppointments([newAppointment, ...appointments]);
-      setNewAppointmentTitle("");
-      setNewAppointmentDesc("");
-      setIsDialogOpen(false);
+      
+      addDoc(collection(db, 'appointments'), data)
+        .then(() => {
+          setNewAppointmentTitle("");
+          setNewAppointmentDesc("");
+          setIsDialogOpen(false);
+        })
+        .catch(async () => {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: 'appointments',
+            operation: 'create',
+            requestResourceData: data,
+          }));
+        });
     }
   };
   
   const handleDeleteAppointment = (id: string) => {
-    setAppointments(appointments.filter(apt => apt.id !== id));
+    if (!db) return;
+    const docRef = doc(db, 'appointments', id);
+    deleteDoc(docRef).catch(async () => {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: docRef.path,
+        operation: 'delete',
+      }));
+    });
   }
 
-  const appointmentDays = appointments.map(apt => apt.date);
+  const appointmentDays = useMemo(() => {
+    return appointments.map((apt: any) => apt.date?.toDate ? apt.date.toDate() : new Date(apt.date));
+  }, [appointments]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -90,8 +126,12 @@ export default function SchedulePage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {selectedDayAppointments.length > 0 ? (
-                selectedDayAppointments.map((apt) => (
+              {loading ? (
+                <div className="flex justify-center py-10">
+                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                </div>
+              ) : selectedDayAppointments.length > 0 ? (
+                selectedDayAppointments.map((apt: any) => (
                   <div key={apt.id} className="group relative rounded-md border p-4">
                     <p className="font-semibold">{apt.title}</p>
                     <p className="text-sm text-muted-foreground">{apt.description}</p>
