@@ -3,15 +3,14 @@
 
 import { useState, useMemo } from 'react'
 import { useCollection, useFirestore, useUser } from '@/firebase'
-import { collection, query, where, addDoc, doc, updateDoc, deleteDoc } from 'firebase/firestore'
+import { collection, query, where, addDoc, doc, deleteDoc } from 'firebase/firestore'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
 import { 
   Puzzle, 
-  Slack, 
-  Stripe, 
+  MessageSquare, 
+  CreditCard, 
   Mail, 
   Github, 
   Plus, 
@@ -20,7 +19,6 @@ import {
   Loader2, 
   Link2, 
   Webhook,
-  ArrowUpRight,
   ExternalLink
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
@@ -31,14 +29,14 @@ const INTEGRATION_CATALOG = [
     name: 'Slack',
     type: 'Messaging',
     description: 'Post automated business alerts and notifications to your channels.',
-    icon: <Slack className="h-8 w-8 text-[#4A154B]" />
+    icon: <MessageSquare className="h-8 w-8 text-[#4A154B]" />
   },
   {
     id: 'stripe',
     name: 'Stripe',
     type: 'Finance',
     description: 'Sync customer payments and transaction history with your ledger.',
-    icon: <div className="p-2 bg-[#635BFF] rounded-md"><Stripe className="h-6 w-6 text-white" /></div>
+    icon: <div className="p-2 bg-[#635BFF] rounded-md"><CreditCard className="h-6 w-6 text-white" /></div>
   },
   {
     id: 'gworkspace',
