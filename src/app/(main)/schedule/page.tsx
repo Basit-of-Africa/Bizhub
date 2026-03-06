@@ -1,7 +1,6 @@
-
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { format, isSameDay } from "date-fns";
 import { useCollection, useFirestore, useUser } from "@/firebase";
 import { collection, addDoc, deleteDoc, doc, serverTimestamp, query, orderBy, where } from "firebase/firestore";
@@ -28,10 +27,15 @@ import { FirestorePermissionError } from "@/firebase/errors";
 export default function SchedulePage() {
   const db = useFirestore();
   const { user } = useUser();
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [newAppointmentTitle, setNewAppointmentTitle] = useState("");
   const [newAppointmentDesc, setNewAppointmentDesc] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+  // Set initial date on client to avoid hydration mismatch
+  useEffect(() => {
+    setSelectedDate(new Date());
+  }, []);
 
   const appointmentsQuery = useMemo(() => {
     if (!db || !user) return null;

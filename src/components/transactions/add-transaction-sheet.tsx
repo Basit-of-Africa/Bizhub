@@ -39,6 +39,7 @@ import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import type { Transaction } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
+import { useEffect } from 'react';
 
 const formSchema = z.object({
   type: z.enum(['income', 'expense']),
@@ -70,6 +71,13 @@ export default function AddTransactionSheet({ isOpen, setIsOpen, onAddTransactio
     },
   });
 
+  // Ensure date is refreshed on open to avoid using a stale or mismatched date
+  useEffect(() => {
+    if (isOpen) {
+      form.setValue('date', new Date());
+    }
+  }, [isOpen, form]);
+
   const transactionType = form.watch('type');
 
   function onSubmit(values: z.infer<typeof formSchema>) {
@@ -81,7 +89,12 @@ export default function AddTransactionSheet({ isOpen, setIsOpen, onAddTransactio
         title: "Success!",
         description: "Transaction has been added.",
     });
-    form.reset();
+    form.reset({
+      ...form.getValues(),
+      description: '',
+      amount: 0,
+      date: new Date(),
+    });
     setIsOpen(false);
   }
 
