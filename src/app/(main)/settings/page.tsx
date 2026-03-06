@@ -1,14 +1,16 @@
+
 "use client"
 
 import { useState, useMemo } from 'react';
-import { useFirestore, useUser, useDoc } from '@/firebase';
-import { doc, setDoc, updateDoc, collection, getDocs, deleteDoc, writeBatch } from 'firebase/firestore';
+import { useFirestore, useUser, useDoc, useCollection } from '@/firebase';
+import { doc, setDoc, updateDoc, collection, getDocs, deleteDoc, writeBatch, query, where } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Slider } from '@/components/ui/slider';
+import { Badge } from '@/components/ui/badge';
 import { 
   Select,
   SelectContent,
@@ -28,15 +30,18 @@ import {
   CheckCircle2,
   Kanban,
   MessageSquare,
-  Sparkles
+  Sparkles,
+  ShieldCheck,
+  UserCog
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import type { UserRole, UserProfile } from '@/lib/types';
 
 export default function SettingsPage() {
   const db = useFirestore();
-  const { user } = useUser();
+  const { user, role } = useUser();
   const { toast } = useToast();
   const [isResetting, setIsResetting] = useState(false);
 
@@ -47,6 +52,14 @@ export default function SettingsPage() {
   }, [db, user]);
 
   const { data: settings, loading } = useDoc(settingsRef);
+
+  // Fetch all users for role management
+  const usersQuery = useMemo(() => {
+    if (!db) return null;
+    return collection(db, 'users');
+  }, [db]);
+
+  const { data: systemUsers = [], loading: loadingUsers } = useCollection<UserProfile>(usersQuery as any);
 
   const updateSetting = (key: string, value: any) => {
     if (!settingsRef) return;
@@ -64,8 +77,44 @@ export default function SettingsPage() {
       });
   };
 
+  const updateUserRole = (targetUserId: string, newRole: UserRole) => {
+    if (!db || role !== 'Super Admin') {
+      toast({
+        variant: "destructive",
+        title: "Access Denied",
+        description: "Only Super Admins can modify system roles.",
+      });
+      return;
+    }
+
+    const userRef = doc(db, 'users', targetUserId);
+    updateDoc(userRef, { role: newRole })
+      .then(() => {
+        toast({
+          title: "Role Updated",
+          description: `User role changed to ${newRole}.`,
+        });
+      })
+      .catch(async () => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: userRef.path,
+          operation: 'update',
+          requestResourceData: { role: newRole }
+        }));
+      });
+  };
+
   const handleResetData = async () => {
     if (!db || !user) return;
+    if (role !== 'Super Admin') {
+      toast({
+        variant: "destructive",
+        title: "Unauthorized",
+        description: "System wipe is restricted to Super Admins.",
+      });
+      return;
+    }
+    
     setIsResetting(true);
     
     try {
@@ -108,19 +157,24 @@ export default function SettingsPage() {
   return (
     <div className="flex flex-col gap-6 max-w-5xl mx-auto pb-20">
       <header className="flex flex-col gap-2">
-        <h1 className="font-headline text-3xl font-bold tracking-tight flex items-center gap-3">
-          <SettingsIcon className="h-8 w-8 text-primary" />
-          Vela OS Control Center
-        </h1>
-        <p className="text-muted-foreground">Master configuration for Vela's automation, intelligence, and business logic.</p>
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-primary/10 rounded-lg">
+            <SettingsIcon className="h-8 w-8 text-primary" />
+          </div>
+          <div>
+            <h1 className="font-headline text-3xl font-bold tracking-tight">Vela OS Control Center</h1>
+            <p className="text-muted-foreground">Master configuration for Vela's automation, intelligence, and business logic.</p>
+          </div>
+        </div>
       </header>
 
       <Tabs defaultValue="automation" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 h-auto gap-2 bg-transparent p-0">
+        <TabsList className="grid w-full grid-cols-2 md:grid-cols-6 h-auto gap-2 bg-transparent p-0">
           <TabsTrigger value="automation" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground border">Automation</TabsTrigger>
           <TabsTrigger value="ai" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground border">Intelligence</TabsTrigger>
           <TabsTrigger value="projects" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground border">Projects</TabsTrigger>
           <TabsTrigger value="hr" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground border">Team</TabsTrigger>
+          <TabsTrigger value="roles" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground border">Roles</TabsTrigger>
           <TabsTrigger value="system" className="data-[state=active]:bg-destructive data-[state=active]:text-destructive-foreground border">System</TabsTrigger>
         </TabsList>
 
@@ -154,16 +208,6 @@ export default function SettingsPage() {
                   onCheckedChange={(val) => updateSetting('autoProjectCreation', val)}
                 />
               </div>
-              <div className="flex items-center justify-between pt-4 border-t">
-                <div className="space-y-0.5">
-                  <Label>Simulate Notifications</Label>
-                  <p className="text-sm text-muted-foreground">Log automated email simulations to the interaction history.</p>
-                </div>
-                <Switch 
-                  checked={settings?.simulateNotifications ?? true} 
-                  onCheckedChange={(val) => updateSetting('simulateNotifications', val)}
-                />
-              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -189,26 +233,7 @@ export default function SettingsPage() {
                   step={1} 
                   onValueChange={(val) => updateSetting('healthThreshold', val[0])}
                 />
-                <p className="text-xs text-muted-foreground">Minimum score to maintain a "Healthy" business status.</p>
               </div>
-
-              <div className="space-y-4 pt-6 border-t">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-primary" />
-                    <Label>OCR Confidence Limit</Label>
-                  </div>
-                  <span className="text-sm font-bold text-primary">{settings?.ocrConfidenceLimit ?? 85}%</span>
-                </div>
-                <Slider 
-                  value={[settings?.ocrConfidenceLimit ?? 85]} 
-                  max={100} 
-                  step={5} 
-                  onValueChange={(val) => updateSetting('ocrConfidenceLimit', val[0])}
-                />
-                <p className="text-xs text-muted-foreground">Minimum confidence score required to auto-approve receipt scans.</p>
-              </div>
-
               <div className="space-y-4 pt-6 border-t">
                 <Label>AI Report Personality</Label>
                 <Select 
@@ -225,7 +250,103 @@ export default function SettingsPage() {
                     <SelectItem value="Strict">Strict & Data-Heavy</SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">Determines the writing style of client status reports.</p>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="roles" className="mt-6 space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <UserCog className="h-5 w-5 text-indigo-500" />
+                System User Management
+              </CardTitle>
+              <CardDescription>Control who can access different modules of the OS.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="rounded-md border">
+                <div className="grid grid-cols-4 p-4 border-b bg-muted/50 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  <div className="col-span-2">User</div>
+                  <div>Role</div>
+                  <div className="text-right">Action</div>
+                </div>
+                {loadingUsers ? (
+                  <div className="p-8 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></div>
+                ) : systemUsers.length === 0 ? (
+                  <div className="p-8 text-center text-sm text-muted-foreground">No system users found. Only demo mode active.</div>
+                ) : (
+                  systemUsers.map(sysUser => (
+                    <div key={sysUser.userId} className="grid grid-cols-4 p-4 items-center border-b last:border-0 hover:bg-muted/5 transition-colors">
+                      <div className="col-span-2 flex flex-col">
+                        <span className="text-sm font-bold">{sysUser.displayName}</span>
+                        <span className="text-xs text-muted-foreground">{sysUser.email}</span>
+                      </div>
+                      <div>
+                        <Badge variant={sysUser.role === 'Super Admin' ? 'default' : sysUser.role === 'Admin' ? 'secondary' : 'outline'} className="text-[10px] py-0">
+                          {sysUser.role}
+                        </Badge>
+                      </div>
+                      <div className="text-right">
+                        {role === 'Super Admin' && sysUser.userId !== user.uid ? (
+                          <Select 
+                            value={sysUser.role} 
+                            onValueChange={(val) => updateUserRole(sysUser.userId, val as UserRole)}
+                          >
+                            <SelectTrigger className="h-8 w-32 ml-auto text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Super Admin">Super Admin</SelectItem>
+                              <SelectItem value="Admin">Admin</SelectItem>
+                              <SelectItem value="Staff">Staff</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <span className="text-xs text-muted-foreground italic">Protected</span>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+              <div className="p-4 bg-indigo-50/50 rounded-lg border border-indigo-100 flex gap-3">
+                <ShieldCheck className="h-5 w-5 text-indigo-500 shrink-0" />
+                <div className="text-xs text-indigo-700 leading-relaxed">
+                  <strong>Role Definitions:</strong><br/>
+                  • <strong>Super Admin:</strong> Full access to all modules, roles, and destructive system resets.<br/>
+                  • <strong>Admin:</strong> Access to CRM, Projects, and HR. Restricted from Role management and System Wipe.<br/>
+                  • <strong>Staff:</strong> Operational access only (Dashboard, Sales, Projects). Restricted from HR and Settings.
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="system" className="mt-6 space-y-6">
+          <Card className="border-destructive/20">
+            <CardHeader className="bg-destructive/5">
+              <CardTitle className="flex items-center gap-2 text-destructive">
+                <ShieldAlert className="h-5 w-5" />
+                OS Factory Reset
+              </CardTitle>
+              <CardDescription>Permanent system actions. Super Admin clearance required.</CardDescription>
+            </CardHeader>
+            <CardContent className="pt-6 space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="space-y-0.5">
+                  <Label className="text-destructive font-bold">Wipe Business Instance</Label>
+                  <p className="text-sm text-muted-foreground">Delete all data associated with this account across all modules.</p>
+                </div>
+                <Button 
+                  variant="destructive" 
+                  size="sm" 
+                  onClick={handleResetData}
+                  disabled={isResetting || role !== 'Super Admin'}
+                >
+                  {isResetting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                  Confirm Purge
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -238,9 +359,8 @@ export default function SettingsPage() {
                 <Kanban className="h-5 w-5 text-blue-500" />
                 Delivery Parameters
               </CardTitle>
-              <CardDescription>Default settings for the project management module.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-8">
+            <CardContent className="space-y-6">
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <Label>Default Project Duration (Days)</Label>
@@ -252,18 +372,6 @@ export default function SettingsPage() {
                   max={180} 
                   step={1} 
                   onValueChange={(val) => updateSetting('defaultProjectDuration', val[0])}
-                />
-                <p className="text-xs text-muted-foreground">Standard timeline for projects auto-generated from won leads.</p>
-              </div>
-
-              <div className="flex items-center justify-between pt-6 border-t">
-                <div className="space-y-0.5">
-                  <Label>Auto-Archive Completed</Label>
-                  <p className="text-sm text-muted-foreground">Move projects to history 7 days after 100% completion.</p>
-                </div>
-                <Switch 
-                  checked={settings?.autoArchiveProjects ?? false} 
-                  onCheckedChange={(val) => updateSetting('autoArchiveProjects', val)}
                 />
               </div>
             </CardContent>
@@ -277,9 +385,8 @@ export default function SettingsPage() {
                 <Users className="h-5 w-5 text-indigo-500" />
                 Team Compliance
               </CardTitle>
-              <CardDescription>Manage requirements for employee training and leave.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-8">
+            <CardContent className="space-y-6">
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <Label>Academy Passing Grade</Label>
@@ -291,57 +398,6 @@ export default function SettingsPage() {
                   step={5} 
                   onValueChange={(val) => updateSetting('trainingPassMark', val[0])}
                 />
-                <p className="text-xs text-muted-foreground">Minimum score required for Vela Academy certifications.</p>
-              </div>
-
-              <div className="flex items-center justify-between pt-6 border-t">
-                <div className="space-y-0.5">
-                  <Label>Auto-Approve Sick Leave</Label>
-                  <p className="text-sm text-muted-foreground">Automatically approve sick leave requests under 2 days.</p>
-                </div>
-                <Switch 
-                  checked={settings?.autoApproveSickLeave ?? false} 
-                  onCheckedChange={(val) => updateSetting('autoApproveSickLeave', val)}
-                />
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="system" className="mt-6 space-y-6">
-          <Card className="border-destructive/20">
-            <CardHeader className="bg-destructive/5">
-              <CardTitle className="flex items-center gap-2 text-destructive">
-                <ShieldAlert className="h-5 w-5" />
-                OS Factory Reset
-              </CardTitle>
-              <CardDescription>Permanent system actions. Use with extreme caution.</CardDescription>
-            </CardHeader>
-            <CardContent className="pt-6 space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="space-y-0.5">
-                  <Label className="text-destructive font-bold">Wipe Business Instance</Label>
-                  <p className="text-sm text-muted-foreground">Delete all data associated with this account across all modules.</p>
-                </div>
-                <Button 
-                  variant="destructive" 
-                  size="sm" 
-                  onClick={handleResetData}
-                  disabled={isResetting}
-                >
-                  {isResetting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
-                  Confirm Purge
-                </Button>
-              </div>
-              
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-6 border-t">
-                <div className="space-y-0.5">
-                  <Label>Database Optimization</Label>
-                  <p className="text-sm text-muted-foreground">Scan and index all collections for faster cross-module querying.</p>
-                </div>
-                <Button variant="outline" size="sm" onClick={() => toast({ title: "Maintenance Complete", description: "Database has been indexed and optimized." })}>
-                  <Database className="mr-2 h-4 w-4" /> Start Scan
-                </Button>
               </div>
             </CardContent>
           </Card>
@@ -353,9 +409,9 @@ export default function SettingsPage() {
           <div className="space-y-1">
             <h4 className="font-bold flex items-center gap-2">
               <CheckCircle2 className="h-4 w-4 text-primary" />
-              Vela Engine v1.2.4 Active
+              Vela Engine v1.2.5 Active
             </h4>
-            <p className="text-xs text-muted-foreground">All systems functional. Google Cloud Region: us-central1.</p>
+            <p className="text-xs text-muted-foreground">User Clearance: <span className="font-bold">{role}</span>. All systems functional.</p>
           </div>
           <Button variant="outline" size="sm" className="bg-background">Export OS Config</Button>
         </div>

@@ -1,6 +1,19 @@
 
 {
   "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Extended user data including roles and permissions.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["Super Admin", "Admin", "Staff"] },
+        "lastLogin": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "role"]
+    },
     "Customer": {
       "title": "Customer",
       "description": "A client or lead in the CRM.",
@@ -140,6 +153,7 @@
     "providers": ["google.com"]
   },
   "firestore": {
+    "/users/{userId}": { "schema": "UserProfile", "description": "System users and their roles." },
     "/customers/{customerId}": { "schema": "Customer", "description": "Business customers." },
     "/leads/{leadId}": { "schema": "Lead", "description": "Sales deals." },
     "/projects/{projectId}": { "schema": "Project", "description": "Active delivery projects." },

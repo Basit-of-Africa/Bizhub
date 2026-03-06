@@ -1,41 +1,86 @@
+
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { User, onAuthStateChanged } from 'firebase/auth';
-import { useAuth } from '../provider';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { useAuth, useFirestore } from '../provider';
+import type { UserProfile, UserRole } from '@/lib/types';
 
 /**
- * Stable mock user to prevent reference changes on every render
+ * Stable mock user with a role to prevent reference changes on every render.
+ * Mock role defaults to 'Super Admin' for testing.
  */
 const MOCK_USER = {
   uid: 'demo-business-owner',
   displayName: 'Vela Demo User',
   email: 'demo@vela.ai',
   photoURL: 'https://picsum.photos/seed/vela-user/200/200',
+  role: 'Super Admin' as UserRole,
 };
 
 /**
- * Hook to manage and provide the current Firebase user.
- * In demo mode, it immediately returns a mock user to prevent loading blocks.
+ * Hook to manage and provide the current Firebase user and their role profile.
  */
 export function useUser() {
   const auth = useAuth();
+  const db = useFirestore();
   const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
+    const unsubscribeAuth = onAuthStateChanged(auth, (u) => {
       setUser(u);
+      if (!u) {
+        setProfile(null);
+        setLoading(false);
+      }
+    });
+
+    return () => unsubscribeAuth();
+  }, [auth]);
+
+  useEffect(() => {
+    if (!user || !db) return;
+
+    const docRef = doc(db, 'users', user.uid);
+    const unsubscribeDoc = onSnapshot(docRef, (snapshot) => {
+      if (snapshot.exists()) {
+        setProfile(snapshot.data() as UserProfile);
+      } else {
+        // Fallback or create profile logic can go here
+        setProfile({
+          userId: user.uid,
+          email: user.email || '',
+          displayName: user.displayName || 'New User',
+          role: 'Staff', // Default role
+          lastLogin: new Date().toISOString(),
+        });
+      }
+      setLoading(false);
+    }, () => {
       setLoading(false);
     });
 
-    return () => unsubscribe();
-  }, [auth]);
+    return () => unsubscribeDoc();
+  }, [user, db]);
 
-  // For the current "Disabled Login" mode, we return the mock user if no real user exists.
-  // We return loading: false to ensure the UI doesn't block on hydration.
+  // Combine real or mock data
+  const currentUser = useMemo(() => {
+    if (user) {
+      return {
+        ...user,
+        role: profile?.role || 'Staff'
+      };
+    }
+    // Return mock for demo purposes if no user is signed in
+    return MOCK_USER as any;
+  }, [user, profile]);
+
   return { 
-    user: user || (MOCK_USER as any), 
-    loading: false 
+    user: currentUser, 
+    role: currentUser.role as UserRole,
+    loading: loading 
   };
 }

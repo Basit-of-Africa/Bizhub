@@ -1,4 +1,14 @@
 
+export type UserRole = 'Super Admin' | 'Admin' | 'Staff';
+
+export type UserProfile = {
+  userId: string;
+  email: string;
+  displayName: string;
+  role: UserRole;
+  lastLogin: string;
+};
+
 export type Transaction = {
   id: string;
   date: string;
@@ -91,7 +101,6 @@ export type TrainingModule = {
   }[];
 };
 
-// CRM Types
 export type Customer = {
   id: string;
   name: string;
