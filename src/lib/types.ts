@@ -9,6 +9,9 @@ export type UserProfile = {
   role: UserRole;
   lastLogin: string;
   isProvisioned?: boolean;
+  businessName?: string;
+  industry?: string;
+  setupCompleted?: boolean;
 };
 
 export type Transaction = {

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -8,8 +9,6 @@ import type { UserProfile, UserRole } from '@/lib/types';
 
 /**
  * Stable mock user for demo purposes.
- * This ensures that when not logged in, the user has "Super Admin" clearance
- * to explore all features of the Vela OS.
  */
 const MOCK_USER = {
   uid: 'demo-tenant-owner',
@@ -17,6 +16,8 @@ const MOCK_USER = {
   email: 'demo@vela.ai',
   photoURL: 'https://picsum.photos/seed/vela-owner/200/200',
   role: 'Super Admin' as UserRole,
+  businessName: 'Vela Global Inc.',
+  setupCompleted: true,
 };
 
 export function useUser() {
@@ -49,7 +50,6 @@ export function useUser() {
         setLoading(false);
       } else {
         // Multi-tenant Onboarding Logic:
-        // 1. Check if invited (provisioned)
         const usersRef = collection(db, 'users');
         const emailQuery = query(usersRef, where('email', '==', user.email));
         const emailSnapshot = await getDocs(emailQuery);
@@ -58,23 +58,25 @@ export function useUser() {
           const provisionedDoc = emailSnapshot.docs[0];
           const provisionedData = provisionedDoc.data();
 
-          const finalProfile = {
-            ...provisionedData,
+          const finalProfile: UserProfile = {
+            ...provisionedData as any,
             userId: user.uid,
             lastLogin: new Date().toISOString(),
-            isProvisioned: false 
-          } as UserProfile;
+            isProvisioned: false,
+            setupCompleted: true // Provisioned users bypass onboarding
+          };
 
           await setDoc(doc(db, 'users', user.uid), finalProfile);
           setProfile(finalProfile);
         } else {
-          // 2. New Tenant: First person to sign up is the Super Admin
+          // New Tenant: First person to sign up is the Super Admin
           const newProfile: UserProfile = {
             userId: user.uid,
             email: user.email || '',
             displayName: user.displayName || 'Business Owner',
             role: 'Super Admin', 
             lastLogin: new Date().toISOString(),
+            setupCompleted: false, // Must go through onboarding
           };
           await setDoc(doc(db, 'users', user.uid), newProfile);
           setProfile(newProfile);
@@ -96,7 +98,9 @@ export function useUser() {
         displayName: user.displayName,
         email: user.email,
         photoURL: user.photoURL,
-        role: profile?.role || 'Staff'
+        role: profile?.role || 'Staff',
+        businessName: profile?.businessName,
+        setupCompleted: profile?.setupCompleted ?? true,
       };
     }
     // Demo Mode: Super Admin access

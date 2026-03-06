@@ -42,7 +42,8 @@ import {
   Kanban,
   ShieldCheck,
   BarChart3,
-  Globe
+  Globe,
+  Building2
 } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -53,6 +54,12 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   const { user, role, loading } = useUser()
   const auth = useAuth()
   const router = useRouter()
+
+  React.useEffect(() => {
+    if (!loading && user && !user.setupCompleted && user.uid !== 'demo-tenant-owner') {
+      router.push("/onboarding")
+    }
+  }, [user, loading, router])
 
   const handleSignOut = () => {
     if (auth) {
@@ -97,6 +104,14 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 
   const filteredSections = sections.filter(section => section.roles.includes(role))
 
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+      </div>
+    )
+  }
+
   return (
     <SidebarProvider>
       <Sidebar>
@@ -109,6 +124,19 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
           </div>
         </SidebarHeader>
         <SidebarContent>
+          <SidebarGroup>
+             <div className="px-2 py-2 mb-4">
+                <div className="flex items-center gap-3 p-3 bg-muted/50 border rounded-lg">
+                   <div className="p-2 bg-primary rounded-md">
+                      <Building2 className="h-4 w-4 text-primary-foreground" />
+                   </div>
+                   <div className="overflow-hidden">
+                      <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground truncate">Organization</p>
+                      <p className="text-sm font-bold truncate">{user?.businessName || "Acme Corp"}</p>
+                   </div>
+                </div>
+             </div>
+          </SidebarGroup>
           {filteredSections.map((section) => (
             <SidebarGroup key={section.label}>
               <SidebarGroupLabel>{section.label}</SidebarGroupLabel>
