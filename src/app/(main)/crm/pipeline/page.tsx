@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useMemo } from 'react';
@@ -14,7 +13,8 @@ import {
   MoreVertical,
   Target,
   Plus,
-  Loader2
+  Loader2,
+  Zap
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -25,6 +25,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { triggerDealWonAutomation } from '@/lib/automation';
 
 export default function PipelinePage() {
   const db = useFirestore();
@@ -47,11 +48,27 @@ export default function PipelinePage() {
     }).format(amount || 0);
   };
 
-  const updateLeadStage = (leadId: string, newStage: string) => {
-    if (!db) return;
+  const updateLeadStage = (leadId: string, newStage: string, leadData: any) => {
+    if (!db || !user) return;
     const leadRef = doc(db, 'leads', leadId);
+    
     updateDoc(leadRef, { stage: newStage })
-      .then(() => toast({ title: "Updated", description: `Deal moved to ${newStage}` }))
+      .then(() => {
+        toast({ title: "Updated", description: `Deal moved to ${newStage}` });
+        
+        // Trigger OS Automation if deal is won
+        if (newStage === 'Closed Won') {
+          toast({
+            title: "Deal Won!",
+            description: "Kickoff automation has been triggered.",
+          });
+          triggerDealWonAutomation(db, user.uid, {
+            title: leadData.title,
+            customerName: leadData.customerName,
+            value: leadData.value
+          });
+        }
+      })
       .catch(async () => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
           path: leadRef.path,
@@ -65,8 +82,11 @@ export default function PipelinePage() {
     <div className="flex flex-col gap-6">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="font-headline text-3xl font-bold tracking-tight">Sales Pipeline</h1>
-          <p className="text-muted-foreground">Track deals and revenue growth through stages.</p>
+          <h1 className="font-headline text-3xl font-bold tracking-tight text-foreground flex items-center gap-2">
+            Sales Pipeline
+            <Zap className="h-5 w-5 text-primary fill-current" />
+          </h1>
+          <p className="text-muted-foreground">Track deals and revenue growth. "Closed Won" triggers project kickoff automation.</p>
         </div>
         <Button onClick={() => toast({ title: "Quick Add", description: "Use the customer profile to create new deals." })}>
           <Plus className="mr-2 h-4 w-4" /> Create Deal
@@ -116,7 +136,7 @@ export default function PipelinePage() {
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
                                 {stages.filter(s => s !== stage).map(s => (
-                                  <DropdownMenuItem key={s} onClick={() => updateLeadStage(lead.id, s)}>
+                                  <DropdownMenuItem key={s} onClick={() => updateLeadStage(lead.id, s, lead)}>
                                     Move to {s}
                                   </DropdownMenuItem>
                                 ))}

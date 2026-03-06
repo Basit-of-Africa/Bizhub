@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useMemo } from 'react';
@@ -16,7 +15,8 @@ import {
   Plus, 
   MoreHorizontal,
   ExternalLink,
-  Loader2
+  Loader2,
+  Zap
 } from 'lucide-react';
 import {
   Dialog,
@@ -25,11 +25,13 @@ import {
   DialogTitle,
   DialogFooter,
   DialogTrigger,
+  DialogDescription,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { triggerCustomerOnboarding } from '@/lib/automation';
 
 export default function CustomersPage() {
   const db = useFirestore();
@@ -78,7 +80,17 @@ export default function CustomersPage() {
 
     addDoc(collection(db, 'customers'), newCustomer)
       .then(() => {
-        toast({ title: "Success", description: "Customer added successfully." });
+        toast({ 
+          title: "Customer Created", 
+          description: "Onboarding automation has been initiated." 
+        });
+        
+        // Trigger OS Automation
+        triggerCustomerOnboarding(db, user.uid, {
+          name: newCustomer.name,
+          company: newCustomer.company
+        });
+
         setIsAdding(false);
       })
       .catch(async (err) => {
@@ -107,6 +119,9 @@ export default function CustomersPage() {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>New Customer</DialogTitle>
+              <DialogDescription>
+                Adding a customer will automatically trigger the onboarding workflow.
+              </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleAddCustomer} className="space-y-4">
               <div className="grid gap-2">
@@ -125,7 +140,11 @@ export default function CustomersPage() {
                 <Label htmlFor="phone">Phone</Label>
                 <Input id="phone" name="phone" placeholder="555-0123" />
               </div>
-              <DialogFooter>
+              <DialogFooter className="flex items-center justify-between sm:justify-between w-full">
+                <div className="flex items-center gap-2 text-xs text-primary font-medium">
+                  <Zap className="h-3 w-3 fill-current" />
+                  Auto-onboarding enabled
+                </div>
                 <Button type="submit">Create Customer</Button>
               </DialogFooter>
             </form>
