@@ -1,23 +1,23 @@
-
 "use client"
 
 import { useMemo, useState } from 'react';
 import { useCollection, useFirestore, useUser } from '@/firebase';
-import { collection, query, where, doc, updateDoc, addDoc } from 'firebase/firestore';
+import { collection, query, where, doc, updateDoc } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { 
-  Kanban, 
   Briefcase, 
-  Clock, 
-  CheckCircle2, 
   MoreVertical,
   Plus,
   Loader2,
   Zap,
-  Target
+  Target,
+  FileText,
+  Sparkles,
+  CheckCircle2,
+  Calendar
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -25,15 +25,29 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { getClientStatusReport } from '@/lib/actions';
 import type { Project } from '@/lib/types';
+import type { ClientStatusReportOutput } from '@/ai/flows/client-status-report-flow';
 
 export default function ProjectsPage() {
   const db = useFirestore();
   const { user } = useUser();
   const { toast } = useToast();
+
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+  const [activeReport, setActiveReport] = useState<ClientStatusReportOutput | null>(null);
+  const [isReportOpen, setIsReportOpen] = useState(false);
 
   const projectsQuery = useMemo(() => {
     if (!db || !user) return null;
@@ -73,6 +87,30 @@ export default function ProjectsPage() {
       });
   };
 
+  const handleGenerateReport = async (project: Project) => {
+    setIsGeneratingReport(true);
+    const result = await getClientStatusReport({
+      projectTitle: project.title,
+      customerName: project.customerName,
+      progress: project.progress,
+      budget: project.budget,
+      dueDate: project.dueDate,
+      status: project.status,
+    });
+
+    if (result.success && result.data) {
+      setActiveReport(result.data);
+      setIsReportOpen(true);
+    } else {
+      toast({
+        variant: "destructive",
+        title: "AI Generation Failed",
+        description: result.error || "Could not generate report.",
+      });
+    }
+    setIsGeneratingReport(false);
+  };
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -88,7 +126,7 @@ export default function ProjectsPage() {
             Projects & Delivery
             <Briefcase className="h-6 w-6 text-primary" />
           </h1>
-          <p className="text-muted-foreground">Manage ongoing client work. Closed Won deals automatically appear here.</p>
+          <p className="text-muted-foreground">Manage ongoing client work. Use AI to generate professional status reports.</p>
         </div>
         <Button onClick={() => toast({ title: "Info", description: "Projects are automatically created from won sales deals." })}>
           <Plus className="mr-2 h-4 w-4" /> New Project
@@ -137,6 +175,9 @@ export default function ProjectsPage() {
                                     Move to {s}
                                   </DropdownMenuItem>
                                 ))}
+                                <DropdownMenuItem onClick={() => handleGenerateReport(project)} className="text-primary font-medium">
+                                  <Sparkles className="mr-2 h-3 w-3" /> Generate AI Report
+                                </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </div>
@@ -161,18 +202,28 @@ export default function ProjectsPage() {
                             </div>
                           </div>
                         </CardContent>
-                        <CardContent className="pt-0">
+                        <CardFooter className="grid grid-cols-2 gap-2 pt-0">
                           <Button 
                             variant="outline" 
                             size="sm" 
-                            className="w-full text-xs" 
+                            className="text-xs" 
                             onClick={() => handleUpdateProgress(project.id, project.progress)}
                             disabled={project.progress >= 100 || status === 'Completed'}
                           >
-                            <Zap className="mr-2 h-3 w-3 text-primary fill-primary" />
+                            <Zap className="mr-1.5 h-3 w-3 text-primary fill-primary" />
                             Log Progress
                           </Button>
-                        </CardContent>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="text-xs text-primary hover:text-primary hover:bg-primary/5" 
+                            onClick={() => handleGenerateReport(project)}
+                            disabled={isGeneratingReport}
+                          >
+                            {isGeneratingReport ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="mr-1.5 h-3 w-3" />}
+                            AI Report
+                          </Button>
+                        </CardFooter>
                       </Card>
                     ))
                   )}
@@ -182,6 +233,82 @@ export default function ProjectsPage() {
           })}
         </div>
       )}
+
+      {/* AI Client Report Dialog */}
+      <Dialog open={isReportOpen} onOpenChange={setIsReportOpen}>
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <div className="flex items-center gap-2 text-primary font-bold mb-1">
+              <Sparkles className="h-5 w-5" />
+              <span>AI Agent Output</span>
+            </div>
+            <DialogTitle className="text-2xl">{activeReport?.reportTitle}</DialogTitle>
+            <DialogDescription>
+              Professional status summary generated based on current delivery metrics.
+            </DialogDescription>
+          </DialogHeader>
+
+          {activeReport && (
+            <div className="space-y-6 py-4">
+              <div className="p-4 bg-muted/50 rounded-lg border-l-4 border-primary">
+                <h4 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-2">
+                  <FileText className="h-3 w-3" /> Executive Summary
+                </h4>
+                <p className="text-sm leading-relaxed">{activeReport.executiveSummary}</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-3">
+                  <h4 className="text-sm font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                    <CheckCircle2 className="h-3 w-3 text-green-500" /> Key Achievements
+                  </h4>
+                  <ul className="space-y-2">
+                    {activeReport.achievements.map((item, i) => (
+                      <li key={i} className="text-xs flex gap-2">
+                        <span className="text-primary">•</span>
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="space-y-3">
+                  <h4 className="text-sm font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                    <Calendar className="h-3 w-3 text-blue-500" /> Next Steps
+                  </h4>
+                  <ul className="space-y-2">
+                    {activeReport.nextSteps.map((item, i) => (
+                      <li key={i} className="text-xs flex gap-2">
+                        <span className="text-primary">•</span>
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t flex items-center justify-between">
+                <div>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">Financial Note</h4>
+                  <p className="text-sm font-medium">{activeReport.financialHealth}</p>
+                </div>
+                <Badge variant={activeReport.overallSentiment === 'Positive' ? 'default' : 'outline'}>
+                  {activeReport.overallSentiment} Sentiment
+                </Badge>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsReportOpen(false)}>Close</Button>
+            <Button onClick={() => {
+              toast({ title: "Copied", description: "Report content copied to clipboard." });
+              setIsReportOpen(false);
+            }}>
+              Copy to Email
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

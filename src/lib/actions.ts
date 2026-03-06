@@ -3,6 +3,7 @@
 import { predictiveBudgetingInsights, type PredictiveBudgetingInput, type PredictiveBudgetingOutput } from '@/ai/flows/predictive-budgeting-insights';
 import { analyzeFinancialHealth, type FinancialHealthInput, type FinancialHealthOutput } from '@/ai/flows/financial-health-flow';
 import { processInvoice, type ProcessInvoiceInput, type ProcessInvoiceOutput } from '@/ai/flows/process-invoice-flow';
+import { generateClientStatusReport, type ClientStatusReportInput, type ClientStatusReportOutput } from '@/ai/flows/client-status-report-flow';
 
 export async function getPredictiveInsights(input: PredictiveBudgetingInput): Promise<{ success: boolean; data?: PredictiveBudgetingOutput; error?: string; }> {
   try {
@@ -31,5 +32,15 @@ export async function scanReceipt(input: ProcessInvoiceInput): Promise<{ success
   } catch (error) {
     console.error("Error in scanReceipt:", error);
     return { success: false, error: 'Failed to process receipt. Ensure the image is clear.' };
+  }
+}
+
+export async function getClientStatusReport(input: ClientStatusReportInput): Promise<{ success: boolean; data?: ClientStatusReportOutput; error?: string; }> {
+  try {
+    const output = await generateClientStatusReport(input);
+    return { success: true, data: output };
+  } catch (error) {
+    console.error("Error in getClientStatusReport:", error);
+    return { success: false, error: 'Failed to generate AI status report.' };
   }
 }
