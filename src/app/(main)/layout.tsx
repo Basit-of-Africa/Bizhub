@@ -45,16 +45,9 @@ import { Button } from "@/components/ui/button"
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
-  const { user, loading } = useUser()
+  const { user } = useUser()
   const auth = useAuth()
   const router = useRouter()
-
-  // REDIRECT LOGIC REMOVED TEMPORARILY
-  // React.useEffect(() => {
-  //   if (!loading && !user) {
-  //     router.push("/login")
-  //   }
-  // }, [user, loading, router])
 
   const handleSignOut = () => {
     if (auth) {
@@ -84,14 +77,9 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     { href: "/hr/training", icon: <GraduationCap className="h-4 w-4" />, label: "Academy" },
   ]
 
-  if (loading || !user) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <Loader2 className="h-10 w-10 animate-spin text-primary" />
-      </div>
-    );
-  }
-
+  // Removed the full-page blocking loader here to ensure the sidebar 
+  // and layout shell are always visible, preventing a "stuck" feeling.
+  
   return (
     <SidebarProvider>
       <Sidebar>
@@ -177,11 +165,11 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
             <SidebarMenuItem>
               <div className="flex items-center gap-2 p-2">
                 <Avatar className="h-8 w-8">
-                  <AvatarImage src={user.photoURL || undefined} />
-                  <AvatarFallback>{user.displayName?.[0] || user.email?.[0]}</AvatarFallback>
+                  <AvatarImage src={user?.photoURL || undefined} />
+                  <AvatarFallback>{user?.displayName?.[0] || user?.email?.[0] || 'V'}</AvatarFallback>
                 </Avatar>
                 <div className="flex-1 overflow-hidden">
-                  <p className="text-sm font-medium truncate">{user.displayName || "User"}</p>
+                  <p className="text-sm font-medium truncate">{user?.displayName || "User"}</p>
                 </div>
                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleSignOut}>
                   <LogOut className="h-4 w-4 text-muted-foreground" />

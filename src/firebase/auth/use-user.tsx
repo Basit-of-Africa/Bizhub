@@ -5,8 +5,18 @@ import { User, onAuthStateChanged } from 'firebase/auth';
 import { useAuth } from '../provider';
 
 /**
+ * Stable mock user to prevent reference changes on every render
+ */
+const MOCK_USER = {
+  uid: 'demo-business-owner',
+  displayName: 'Vela Demo User',
+  email: 'demo@vela.ai',
+  photoURL: 'https://picsum.photos/seed/vela-user/200/200',
+};
+
+/**
  * Hook to manage and provide the current Firebase user.
- * MODIFIED: Temporarily provides a mock user if no real user is logged in.
+ * In demo mode, it immediately returns a mock user to prevent loading blocks.
  */
 export function useUser() {
   const auth = useAuth();
@@ -14,24 +24,18 @@ export function useUser() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
+    const unsubscribe = onAuthStateChanged(auth, (u) => {
+      setUser(u);
       setLoading(false);
     });
 
     return () => unsubscribe();
   }, [auth]);
 
-  // Temporary mock user for development/preview without login
-  const mockUser = {
-    uid: 'demo-business-owner',
-    displayName: 'Vela Demo User',
-    email: 'demo@vela.ai',
-    photoURL: 'https://picsum.photos/seed/vela-user/200/200',
-  };
-
+  // For the current "Disabled Login" mode, we return the mock user if no real user exists.
+  // We return loading: false to ensure the UI doesn't block on hydration.
   return { 
-    user: user || (mockUser as any), 
-    loading: false // Set to false to allow immediate access
+    user: user || (MOCK_USER as any), 
+    loading: false 
   };
 }
