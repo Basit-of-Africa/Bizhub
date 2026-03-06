@@ -8,13 +8,14 @@ import { useAuth, useFirestore } from '../provider';
 import type { UserProfile, UserRole } from '@/lib/types';
 
 /**
- * Stable mock user for initial hydration / local dev if needed.
- * But we prefer real auth for the Multi-tenant "OS" experience.
+ * Stable mock user for demo purposes.
+ * This ensures that when not logged in, the user has "Super Admin" clearance
+ * to explore all features of the Vela OS.
  */
 const MOCK_USER = {
   uid: 'demo-tenant-owner',
-  displayName: 'Vela OS Owner',
-  email: 'owner@vela.ai',
+  displayName: 'Vela Demo Admin',
+  email: 'demo@vela.ai',
   photoURL: 'https://picsum.photos/seed/vela-owner/200/200',
   role: 'Super Admin' as UserRole,
 };
@@ -94,9 +95,9 @@ export function useUser() {
         role: profile?.role || 'Staff'
       };
     }
-    // In production, you'd handle null user, but for development we can show the mock 
-    // IF explicitly in a demo environment.
-    return null;
+    // For the current demo environment, we return the MOCK_USER 
+    // to allow full exploration of Admin features without login.
+    return MOCK_USER as any;
   }, [user, profile]);
 
   return { 
