@@ -1,26 +1,51 @@
+
 "use client"
 
-import { useState } from 'react';
-import { inductionTasks as initialTasks, employees } from '@/lib/data';
+import { useState, useMemo } from 'react';
+import { useCollection, useFirestore, useUser } from '@/firebase';
+import { collection, doc, updateDoc, query, where } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { FileText, Download, Loader2 } from 'lucide-react';
+import { FileText, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 export default function InductionPage() {
-  const [tasks, setTasks] = useState(initialTasks);
-  const [isGenerating, setIsGenerating] = useState<string | null>(null);
+  const db = useFirestore();
+  const { user } = useUser();
   const { toast } = useToast();
-  const onboardingEmployees = employees.filter(e => e.status === 'Onboarding');
+  const [isGenerating, setIsGenerating] = useState<string | null>(null);
 
-  const toggleTask = (taskId: string) => {
-    setTasks(prev => prev.map(t => 
-      t.id === taskId ? { ...t, completed: !t.completed } : t
-    ));
+  const employeesQuery = useMemo(() => {
+    if (!db || !user) return null;
+    return query(collection(db, 'employees'), where('userId', '==', user.uid), where('status', '==', 'Onboarding'));
+  }, [db, user]);
+
+  const { data: onboardingEmployees = [], loading: loadingEmp } = useCollection(employeesQuery);
+
+  const tasksQuery = useMemo(() => {
+    if (!db || !user) return null;
+    return query(collection(db, 'inductionTasks'), where('userId', '==', user.uid));
+  }, [db, user]);
+
+  const { data: tasks = [], loading: loadingTasks } = useCollection(tasksQuery);
+
+  const toggleTask = (taskId: string, currentCompleted: boolean) => {
+    if (!db) return;
+    const taskRef = doc(db, 'inductionTasks', taskId);
+    updateDoc(taskRef, { completed: !currentCompleted })
+      .catch(async () => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: taskRef.path,
+          operation: 'update',
+          requestResourceData: { completed: !currentCompleted }
+        }));
+      });
   };
 
   const handleGeneratePaperwork = (employeeId: string) => {
@@ -33,6 +58,14 @@ export default function InductionPage() {
       });
     }, 1500);
   };
+
+  if (loadingEmp || loadingTasks) {
+    return (
+      <div className="flex h-[80vh] items-center justify-center">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -95,21 +128,25 @@ export default function InductionPage() {
                   <div className="grid gap-4">
                     <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Checklist Items</h3>
                     <div className="grid gap-3">
-                      {empTasks.map(task => (
-                        <div key={task.id} className="flex items-center space-x-3 rounded-lg border p-4 transition-colors hover:bg-muted/50">
-                          <Checkbox 
-                            id={task.id} 
-                            checked={task.completed} 
-                            onCheckedChange={() => toggleTask(task.id)}
-                          />
-                          <div className="grid gap-1 flex-1">
-                            <Label htmlFor={task.id} className="font-medium cursor-pointer">
-                              {task.task}
-                            </Label>
-                            <span className="text-xs text-muted-foreground">Due: {task.dueDate}</span>
+                      {empTasks.length === 0 ? (
+                        <p className="text-xs text-muted-foreground italic">No tasks assigned yet.</p>
+                      ) : (
+                        empTasks.map(task => (
+                          <div key={task.id} className="flex items-center space-x-3 rounded-lg border p-4 transition-colors hover:bg-muted/50">
+                            <Checkbox 
+                              id={task.id} 
+                              checked={task.completed} 
+                              onCheckedChange={() => toggleTask(task.id, task.completed)}
+                            />
+                            <div className="grid gap-1 flex-1">
+                              <Label htmlFor={task.id} className="font-medium cursor-pointer">
+                                {task.task}
+                              </Label>
+                              <span className="text-xs text-muted-foreground">Due: {task.dueDate}</span>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        ))
+                      )}
                     </div>
                   </div>
                 </CardContent>

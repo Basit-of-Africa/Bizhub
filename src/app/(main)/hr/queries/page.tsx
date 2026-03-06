@@ -1,13 +1,26 @@
 
 "use client"
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useCollection, useFirestore, useUser } from '@/firebase';
-import { collection, doc, updateDoc, query, where } from 'firebase/firestore';
+import { collection, doc, updateDoc, query, where, addDoc } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MessageSquare, Clock, Filter, AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react';
+import { MessageSquare, Clock, Filter, AlertTriangle, CheckCircle2, Loader2, Plus } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogTrigger,
+  DialogDescription,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -16,6 +29,7 @@ export default function QueriesPage() {
   const db = useFirestore();
   const { user } = useUser();
   const { toast } = useToast();
+  const [isAdding, setIsAdding] = useState(false);
 
   const hrQueriesQuery = useMemo(() => {
     if (!db || !user) return null;
@@ -23,6 +37,13 @@ export default function QueriesPage() {
   }, [db, user]);
 
   const { data: queries = [], loading } = useCollection(hrQueriesQuery);
+
+  const employeesQuery = useMemo(() => {
+    if (!db || !user) return null;
+    return query(collection(db, 'employees'), where('userId', '==', user.uid));
+  }, [db, user]);
+
+  const { data: employees = [] } = useCollection(employeesQuery);
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -52,6 +73,40 @@ export default function QueriesPage() {
       });
   };
 
+  const handleCreateTicket = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!db || !user) return;
+
+    const formData = new FormData(e.currentTarget);
+    const employeeId = formData.get('employeeId') as string;
+    const employee = employees.find(emp => emp.id === employeeId);
+
+    const newTicket = {
+      userId: user.uid,
+      employeeId,
+      employeeName: employee?.name || 'Unknown Employee',
+      subject: formData.get('subject') as string,
+      message: formData.get('message') as string,
+      priority: formData.get('priority') as string,
+      status: 'Open',
+      date: new Date().toLocaleDateString(),
+      createdAt: new Date().toISOString(),
+    };
+
+    addDoc(collection(db, 'hrQueries'), newTicket)
+      .then(() => {
+        toast({ title: "Ticket Created", description: "HR helpdesk ticket has been successfully logged." });
+        setIsAdding(false);
+      })
+      .catch(async () => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: 'hrQueries',
+          operation: 'create',
+          requestResourceData: newTicket
+        }));
+      });
+  };
+
   return (
     <div className="flex flex-col gap-6">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -63,9 +118,58 @@ export default function QueriesPage() {
           <Button variant="outline">
             <Filter className="mr-2 h-4 w-4" /> Filter
           </Button>
-          <Button onClick={() => toast({ title: "Note", description: "Use the employee dashboard to submit new tickets." })}>
-            <MessageSquare className="mr-2 h-4 w-4" /> New Ticket
-          </Button>
+          <Dialog open={isAdding} onOpenChange={setIsAdding}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" /> New Ticket
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>New HR Ticket</DialogTitle>
+                <DialogDescription>Submit a support request to the HR department.</DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleCreateTicket} className="space-y-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="employeeId">Requested For</Label>
+                  <Select name="employeeId" required>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select employee" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {employees.map(emp => (
+                        <SelectItem key={emp.id} value={emp.id}>{emp.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="subject">Subject</Label>
+                  <Input id="subject" name="subject" required placeholder="e.g. Payroll Discrepancy" />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="priority">Priority</Label>
+                  <Select name="priority" defaultValue="Low">
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Low">Low</SelectItem>
+                      <SelectItem value="Medium">Medium</SelectItem>
+                      <SelectItem value="High">High</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="message">Message</Label>
+                  <Textarea id="message" name="message" required placeholder="Describe the issue in detail..." />
+                </div>
+                <DialogFooter>
+                  <Button type="submit">Submit Ticket</Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
         </div>
       </header>
 

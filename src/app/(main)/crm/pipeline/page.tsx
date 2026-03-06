@@ -1,8 +1,9 @@
+
 "use client"
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useCollection, useFirestore, useUser } from '@/firebase';
-import { collection, query, where, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, doc, updateDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -22,6 +23,18 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogTrigger,
+  DialogDescription,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -31,6 +44,7 @@ export default function PipelinePage() {
   const db = useFirestore();
   const { user } = useUser();
   const { toast } = useToast();
+  const [isAdding, setIsAdding] = useState(false);
 
   const leadsQuery = useMemo(() => {
     if (!db || !user) return null;
@@ -56,7 +70,6 @@ export default function PipelinePage() {
       .then(() => {
         toast({ title: "Updated", description: `Deal moved to ${newStage}` });
         
-        // Trigger OS Automation if deal is won
         if (newStage === 'Closed Won') {
           toast({
             title: "Deal Won!",
@@ -78,6 +91,35 @@ export default function PipelinePage() {
       });
   };
 
+  const handleCreateLead = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!db || !user) return;
+
+    const formData = new FormData(e.currentTarget);
+    const newLead = {
+      userId: user.uid,
+      title: formData.get('title') as string,
+      customerName: formData.get('customerName') as string,
+      value: parseFloat(formData.get('value') as string) || 0,
+      stage: 'Discovery',
+      probability: 10,
+      createdAt: new Date().toISOString(),
+    };
+
+    addDoc(collection(db, 'leads'), newLead)
+      .then(() => {
+        toast({ title: "Deal Created", description: "The opportunity has been added to Discovery." });
+        setIsAdding(false);
+      })
+      .catch(async () => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: 'leads',
+          operation: 'create',
+          requestResourceData: newLead
+        }));
+      });
+  };
+
   return (
     <div className="flex flex-col gap-6">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -88,9 +130,37 @@ export default function PipelinePage() {
           </h1>
           <p className="text-muted-foreground">Track deals and revenue growth. "Closed Won" triggers project kickoff automation.</p>
         </div>
-        <Button onClick={() => toast({ title: "Quick Add", description: "Use the customer profile to create new deals." })}>
-          <Plus className="mr-2 h-4 w-4" /> Create Deal
-        </Button>
+
+        <Dialog open={isAdding} onOpenChange={setIsAdding}>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="mr-2 h-4 w-4" /> Create Deal
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>New Sales Opportunity</DialogTitle>
+              <DialogDescription>Add a new deal to your pipeline tracker.</DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleCreateLead} className="space-y-4">
+              <div className="grid gap-2">
+                <Label htmlFor="title">Deal Title</Label>
+                <Input id="title" name="title" required placeholder="e.g. Website Redesign" />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="customerName">Customer Name</Label>
+                <Input id="customerName" name="customerName" required placeholder="e.g. Acme Corp" />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="value">Estimated Value ($)</Label>
+                <Input id="value" name="value" type="number" step="0.01" required placeholder="5000" />
+              </div>
+              <DialogFooter>
+                <Button type="submit">Initialize Deal</Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
       </header>
 
       {loading ? (
