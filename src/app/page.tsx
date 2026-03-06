@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect } from 'react';
@@ -11,14 +10,11 @@ export default function Home() {
   const router = useRouter();
 
   useEffect(() => {
+    // ALWAYS REDIRECT TO DASHBOARD FOR PREVIEW MODE
     if (!loading) {
-      if (user) {
-        router.push('/dashboard');
-      } else {
-        router.push('/login');
-      }
+      router.push('/dashboard');
     }
-  }, [user, loading, router]);
+  }, [loading, router]);
 
   return (
     <div className="flex h-screen items-center justify-center">

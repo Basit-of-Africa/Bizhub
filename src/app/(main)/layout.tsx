@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -30,9 +29,7 @@ import {
   BrainCircuit,
   Settings,
   Users,
-  UserPlus,
   PlaneLanding,
-  Star,
   MessageSquare,
   GraduationCap,
   Briefcase,
@@ -52,11 +49,12 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   const auth = useAuth()
   const router = useRouter()
 
-  React.useEffect(() => {
-    if (!loading && !user) {
-      router.push("/login")
-    }
-  }, [user, loading, router])
+  // REDIRECT LOGIC REMOVED TEMPORARILY
+  // React.useEffect(() => {
+  //   if (!loading && !user) {
+  //     router.push("/login")
+  //   }
+  // }, [user, loading, router])
 
   const handleSignOut = () => {
     if (auth) {
