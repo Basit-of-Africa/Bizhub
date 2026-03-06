@@ -3,7 +3,7 @@
 
 import { useState, useMemo } from 'react';
 import { useFirestore, useUser, useDoc, useCollection } from '@/firebase';
-import { doc, setDoc, updateDoc, collection, getDocs, deleteDoc, writeBatch, query, where } from 'firebase/firestore';
+import { doc, setDoc, updateDoc, collection, getDocs, deleteDoc, writeBatch, query, where, addDoc } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { 
   Select,
   SelectContent,
@@ -18,6 +19,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { 
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 import { 
   Settings as SettingsIcon, 
   ShieldAlert, 
@@ -32,7 +42,8 @@ import {
   MessageSquare,
   Sparkles,
   ShieldCheck,
-  UserCog
+  UserCog,
+  UserPlus
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -44,6 +55,7 @@ export default function SettingsPage() {
   const { user, role } = useUser();
   const { toast } = useToast();
   const [isResetting, setIsResetting] = useState(false);
+  const [isAddingUser, setIsAddingUser] = useState(false);
 
   // Fetch or create system settings doc
   const settingsRef = useMemo(() => {
@@ -100,6 +112,41 @@ export default function SettingsPage() {
           path: userRef.path,
           operation: 'update',
           requestResourceData: { role: newRole }
+        }));
+      });
+  };
+
+  const handleAddSystemUser = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!db || role !== 'Super Admin') return;
+
+    const formData = new FormData(e.currentTarget);
+    const email = formData.get('email') as string;
+    const displayName = formData.get('displayName') as string;
+    const selectedRole = formData.get('role') as UserRole;
+
+    const newUser = {
+      userId: '', // Empty initially, will be claimed on login
+      email,
+      displayName,
+      role: selectedRole,
+      lastLogin: '',
+      isProvisioned: true,
+    };
+
+    addDoc(collection(db, 'users'), newUser)
+      .then(() => {
+        toast({
+          title: "User Provisioned",
+          description: `${displayName} has been added as ${selectedRole}. They will be linked upon their first sign-in.`,
+        });
+        setIsAddingUser(false);
+      })
+      .catch(async () => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: 'users',
+          operation: 'create',
+          requestResourceData: newUser
         }));
       });
   };
@@ -257,12 +304,56 @@ export default function SettingsPage() {
 
         <TabsContent value="roles" className="mt-6 space-y-6">
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <UserCog className="h-5 w-5 text-indigo-500" />
-                System User Management
-              </CardTitle>
-              <CardDescription>Control who can access different modules of the OS.</CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <UserCog className="h-5 w-5 text-indigo-500" />
+                  System User Management
+                </CardTitle>
+                <CardDescription>Control who can access different modules of the OS.</CardDescription>
+              </div>
+              {role === 'Super Admin' && (
+                <Dialog open={isAddingUser} onOpenChange={setIsAddingUser}>
+                  <DialogTrigger asChild>
+                    <Button size="sm">
+                      <UserPlus className="mr-2 h-4 w-4" /> Provision User
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Provision New System User</DialogTitle>
+                      <DialogDescription>
+                        Assign a role to an email address. The role will be applied when they first sign in.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <form onSubmit={handleAddSystemUser} className="space-y-4">
+                      <div className="grid gap-2">
+                        <Label htmlFor="displayName">Name</Label>
+                        <Input id="displayName" name="displayName" required placeholder="Jane Doe" />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="email">Email</Label>
+                        <Input id="email" name="email" type="email" required placeholder="jane@example.com" />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="role">System Role</Label>
+                        <Select name="role" defaultValue="Staff">
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Admin">Admin</SelectItem>
+                            <SelectItem value="Staff">Staff</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <DialogFooter>
+                        <Button type="submit">Create Provisioned Profile</Button>
+                      </DialogFooter>
+                    </form>
+                  </DialogContent>
+                </Dialog>
+              )}
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="rounded-md border">
@@ -277,10 +368,15 @@ export default function SettingsPage() {
                   <div className="p-8 text-center text-sm text-muted-foreground">No system users found. Only demo mode active.</div>
                 ) : (
                   systemUsers.map(sysUser => (
-                    <div key={sysUser.userId} className="grid grid-cols-4 p-4 items-center border-b last:border-0 hover:bg-muted/5 transition-colors">
+                    <div key={sysUser.id} className="grid grid-cols-4 p-4 items-center border-b last:border-0 hover:bg-muted/5 transition-colors">
                       <div className="col-span-2 flex flex-col">
                         <span className="text-sm font-bold">{sysUser.displayName}</span>
-                        <span className="text-xs text-muted-foreground">{sysUser.email}</span>
+                        <span className="text-xs text-muted-foreground flex items-center gap-1">
+                          {sysUser.email}
+                          {sysUser.isProvisioned && !sysUser.userId && (
+                            <Badge variant="secondary" className="text-[8px] h-3 px-1">Pending Sign-in</Badge>
+                          )}
+                        </span>
                       </div>
                       <div>
                         <Badge variant={sysUser.role === 'Super Admin' ? 'default' : sysUser.role === 'Admin' ? 'secondary' : 'outline'} className="text-[10px] py-0">
@@ -291,7 +387,7 @@ export default function SettingsPage() {
                         {role === 'Super Admin' && sysUser.userId !== user.uid ? (
                           <Select 
                             value={sysUser.role} 
-                            onValueChange={(val) => updateUserRole(sysUser.userId, val as UserRole)}
+                            onValueChange={(val) => updateUserRole(sysUser.id!, val as UserRole)}
                           >
                             <SelectTrigger className="h-8 w-32 ml-auto text-xs">
                               <SelectValue />
@@ -314,7 +410,7 @@ export default function SettingsPage() {
                 <ShieldCheck className="h-5 w-5 text-indigo-500 shrink-0" />
                 <div className="text-xs text-indigo-700 leading-relaxed">
                   <strong>Role Definitions:</strong><br/>
-                  • <strong>Super Admin:</strong> Full access to all modules, roles, and destructive system resets.<br/>
+                  • <strong>Super Admin:</strong> Full access to all modules, roles, and destructive system resets. Only they can provision new Admin/Staff profiles.<br/>
                   • <strong>Admin:</strong> Access to CRM, Projects, and HR. Restricted from Role management and System Wipe.<br/>
                   • <strong>Staff:</strong> Operational access only (Dashboard, Sales, Projects). Restricted from HR and Settings.
                 </div>

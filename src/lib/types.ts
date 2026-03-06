@@ -2,11 +2,13 @@
 export type UserRole = 'Super Admin' | 'Admin' | 'Staff';
 
 export type UserProfile = {
+  id?: string;
   userId: string;
   email: string;
   displayName: string;
   role: UserRole;
   lastLogin: string;
+  isProvisioned?: boolean;
 };
 
 export type Transaction = {

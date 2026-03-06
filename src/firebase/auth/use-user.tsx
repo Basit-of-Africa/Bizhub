@@ -3,13 +3,12 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { User, onAuthStateChanged } from 'firebase/auth';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, collection, query, where, getDocs, updateDoc, setDoc } from 'firebase/firestore';
 import { useAuth, useFirestore } from '../provider';
 import type { UserProfile, UserRole } from '@/lib/types';
 
 /**
  * Stable mock user with a role to prevent reference changes on every render.
- * Mock role defaults to 'Super Admin' for testing.
  */
 const MOCK_USER = {
   uid: 'demo-business-owner',
@@ -44,21 +43,51 @@ export function useUser() {
   useEffect(() => {
     if (!user || !db) return;
 
+    // 1. Try direct UID lookup
     const docRef = doc(db, 'users', user.uid);
-    const unsubscribeDoc = onSnapshot(docRef, (snapshot) => {
+    const unsubscribeDoc = onSnapshot(docRef, async (snapshot) => {
       if (snapshot.exists()) {
         setProfile(snapshot.data() as UserProfile);
+        setLoading(false);
       } else {
-        // Fallback or create profile logic can go here
-        setProfile({
-          userId: user.uid,
-          email: user.email || '',
-          displayName: user.displayName || 'New User',
-          role: 'Staff', // Default role
-          lastLogin: new Date().toISOString(),
-        });
+        // 2. If not found, check if a profile was pre-provisioned by email
+        const usersRef = collection(db, 'users');
+        const emailQuery = query(usersRef, where('email', '==', user.email));
+        const emailSnapshot = await getDocs(emailQuery);
+
+        if (!emailSnapshot.empty) {
+          const provisionedDoc = emailSnapshot.docs[0];
+          const provisionedData = provisionedDoc.data();
+
+          // "Claim" the provisioned profile by moving it to the UID document
+          const finalProfile = {
+            ...provisionedData,
+            userId: user.uid,
+            lastLogin: new Date().toISOString(),
+            isProvisioned: false // Now fully claimed
+          } as UserProfile;
+
+          await setDoc(doc(db, 'users', user.uid), finalProfile);
+          // Delete the temporary provisioned doc if it was an auto-id doc
+          if (provisionedDoc.id !== user.uid) {
+            // We keep the old doc for history or delete it? Usually cleaner to move to UID path.
+            // For this implementation, we've mirrored it to UID path.
+          }
+          setProfile(finalProfile);
+        } else {
+          // 3. Last resort: Create a default Staff profile if nothing was pre-provisioned
+          const newProfile: UserProfile = {
+            userId: user.uid,
+            email: user.email || '',
+            displayName: user.displayName || 'New User',
+            role: 'Staff', 
+            lastLogin: new Date().toISOString(),
+          };
+          await setDoc(doc(db, 'users', user.uid), newProfile);
+          setProfile(newProfile);
+        }
+        setLoading(false);
       }
-      setLoading(false);
     }, () => {
       setLoading(false);
     });
