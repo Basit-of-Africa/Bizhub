@@ -34,6 +34,7 @@ import {
   Line
 } from 'recharts';
 import { useToast } from '@/hooks/use-toast';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function AnalyticsPage() {
   const db = useFirestore();
@@ -135,14 +136,7 @@ export default function AnalyticsPage() {
 
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
-  if (loading) {
-    return (
-      <div className="flex h-[80vh] flex-col items-center justify-center gap-4">
-        <Loader2 className="h-10 w-10 animate-spin text-primary" />
-        <p className="text-muted-foreground animate-pulse font-medium">Synthesizing Business Intelligence...</p>
-      </div>
-    );
-  }
+  const ChartSkeleton = () => <Skeleton className="h-[400px] w-full" />;
 
   return (
     <div className="flex flex-col gap-8 pb-12">
@@ -188,19 +182,23 @@ export default function AnalyticsPage() {
                 <CardTitle>Pipeline Value by Stage</CardTitle>
                 <CardDescription>Estimated revenue currently sitting in each sales stage.</CardDescription>
               </CardHeader>
-              <CardContent className="h-[400px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={salesByStage}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--muted))" />
-                    <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} />
-                    <YAxis fontSize={12} tickLine={false} axisLine={false} tickFormatter={(v) => `$${v/1000}k`} />
-                    <Tooltip 
-                      cursor={{fill: 'hsl(var(--muted)/0.3)'}}
-                      contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}
-                    />
-                    <Bar dataKey="value" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+              <CardContent>
+                {loadingLeads ? <ChartSkeleton /> : (
+                  <div className="h-[400px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={salesByStage}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--muted))" />
+                        <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} />
+                        <YAxis fontSize={12} tickLine={false} axisLine={false} tickFormatter={(v) => `$${v/1000}k`} />
+                        <Tooltip 
+                          cursor={{fill: 'hsl(var(--muted)/0.3)'}}
+                          contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}
+                        />
+                        <Bar dataKey="value" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -209,24 +207,28 @@ export default function AnalyticsPage() {
                 <CardTitle>Lead Volume</CardTitle>
                 <CardDescription>Number of deals per stage.</CardDescription>
               </CardHeader>
-              <CardContent className="h-[400px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={salesByStage}
-                      innerRadius={60}
-                      outerRadius={100}
-                      paddingAngle={5}
-                      dataKey="count"
-                    >
-                      {salesByStage.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                    <Legend verticalAlign="bottom" height={36} />
-                  </PieChart>
-                </ResponsiveContainer>
+              <CardContent>
+                {loadingLeads ? <ChartSkeleton /> : (
+                  <div className="h-[400px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={salesByStage}
+                          innerRadius={60}
+                          outerRadius={100}
+                          paddingAngle={5}
+                          dataKey="count"
+                        >
+                          {salesByStage.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                        <Legend verticalAlign="bottom" height={36} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -240,18 +242,22 @@ export default function AnalyticsPage() {
                 <CardTitle>Cash Flow Trends</CardTitle>
                 <CardDescription>Monthly comparison of income vs. expenses.</CardDescription>
               </CardHeader>
-              <CardContent className="h-[400px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={financialTrends}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--muted))" />
-                    <XAxis dataKey="month" fontSize={12} tickLine={false} axisLine={false} />
-                    <YAxis fontSize={12} tickLine={false} axisLine={false} />
-                    <Tooltip />
-                    <Legend />
-                    <Line type="monotone" dataKey="income" stroke="#10b981" strokeWidth={3} dot={{ r: 4 }} />
-                    <Line type="monotone" dataKey="expense" stroke="#ef4444" strokeWidth={3} dot={{ r: 4 }} />
-                  </LineChart>
-                </ResponsiveContainer>
+              <CardContent>
+                {loadingTrans ? <ChartSkeleton /> : (
+                  <div className="h-[400px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={financialTrends}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--muted))" />
+                        <XAxis dataKey="month" fontSize={12} tickLine={false} axisLine={false} />
+                        <YAxis fontSize={12} tickLine={false} axisLine={false} />
+                        <Tooltip />
+                        <Legend />
+                        <Line type="monotone" dataKey="income" stroke="#10b981" strokeWidth={3} dot={{ r: 4 }} />
+                        <Line type="monotone" dataKey="expense" stroke="#ef4444" strokeWidth={3} dot={{ r: 4 }} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -265,23 +271,27 @@ export default function AnalyticsPage() {
                 <CardTitle>Project Status Distribution</CardTitle>
                 <CardDescription>Health of current delivery portfolio.</CardDescription>
               </CardHeader>
-              <CardContent className="h-[400px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={projectStatus}
-                      innerRadius={80}
-                      outerRadius={120}
-                      dataKey="value"
-                      label
-                    >
-                      <Cell fill="#10b981" />
-                      <Cell fill="#f59e0b" />
-                      <Cell fill="#6366f1" />
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
+              <CardContent>
+                {loadingProj ? <ChartSkeleton /> : (
+                  <div className="h-[400px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={projectStatus}
+                          innerRadius={80}
+                          outerRadius={120}
+                          dataKey="value"
+                          label
+                        >
+                          <Cell fill="#10b981" />
+                          <Cell fill="#f59e0b" />
+                          <Cell fill="#6366f1" />
+                        </Pie>
+                        <Tooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -291,21 +301,25 @@ export default function AnalyticsPage() {
                 <CardDescription>Mean progress across active projects.</CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col items-center justify-center h-[400px] text-center">
-                <div className="space-y-2">
-                  <p className="text-6xl font-bold text-primary">
-                    {Math.round(projects.reduce((sum, p) => sum + (p.progress || 0), 0) / (projects.length || 1))}%
-                  </p>
-                  <p className="text-sm text-muted-foreground uppercase tracking-widest font-bold">Average Progress</p>
-                </div>
-                <div className="mt-8 w-full max-w-xs space-y-4">
-                  <div className="flex justify-between text-xs">
-                    <span>Active Projects</span>
-                    <span>{projects.filter(p => p.status === 'Active').length}</span>
-                  </div>
-                  <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
-                    <div className="h-full bg-primary" style={{ width: '65%' }} />
-                  </div>
-                </div>
+                {loadingProj ? <Loader2 className="h-10 w-10 animate-spin text-primary" /> : (
+                  <>
+                    <div className="space-y-2">
+                      <p className="text-6xl font-bold text-primary">
+                        {Math.round(projects.reduce((sum, p) => sum + (p.progress || 0), 0) / (projects.length || 1))}%
+                      </p>
+                      <p className="text-sm text-muted-foreground uppercase tracking-widest font-bold">Average Progress</p>
+                    </div>
+                    <div className="mt-8 w-full max-w-xs space-y-4">
+                      <div className="flex justify-between text-xs">
+                        <span>Active Projects</span>
+                        <span>{projects.filter(p => p.status === 'Active').length}</span>
+                      </div>
+                      <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                        <div className="h-full bg-primary" style={{ width: '65%' }} />
+                      </div>
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -319,16 +333,20 @@ export default function AnalyticsPage() {
                 <CardTitle>Department Distribution</CardTitle>
                 <CardDescription>Headcount breakdown by company department.</CardDescription>
               </CardHeader>
-              <CardContent className="h-[400px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={departmentHeadcount} layout="vertical">
-                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--muted))" />
-                    <XAxis type="number" fontSize={12} tickLine={false} axisLine={false} />
-                    <YAxis dataKey="name" type="category" fontSize={12} tickLine={false} axisLine={false} width={100} />
-                    <Tooltip cursor={{fill: 'transparent'}} />
-                    <Bar dataKey="value" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+              <CardContent>
+                {loadingEmp ? <ChartSkeleton /> : (
+                  <div className="h-[400px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={departmentHeadcount} layout="vertical">
+                        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--muted))" />
+                        <XAxis type="number" fontSize={12} tickLine={false} axisLine={false} />
+                        <YAxis dataKey="name" type="category" fontSize={12} tickLine={false} axisLine={false} width={100} />
+                        <Tooltip cursor={{fill: 'transparent'}} />
+                        <Bar dataKey="value" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -337,18 +355,26 @@ export default function AnalyticsPage() {
                 <CardTitle>Workforce Snapshot</CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground font-medium">Total Staff</p>
-                  <p className="text-4xl font-bold">{employees.length}</p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground font-medium">Retention (12m)</p>
-                  <p className="text-4xl font-bold text-green-600">94.2%</p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground font-medium">Open HR Queries</p>
-                  <p className="text-4xl font-bold text-orange-600">3</p>
-                </div>
+                {loadingEmp ? (
+                  <div className="space-y-6">
+                    {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}
+                  </div>
+                ) : (
+                  <>
+                    <div className="space-y-1">
+                      <p className="text-sm text-muted-foreground font-medium">Total Staff</p>
+                      <p className="text-4xl font-bold">{employees.length}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-sm text-muted-foreground font-medium">Retention (12m)</p>
+                      <p className="text-4xl font-bold text-green-600">94.2%</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-sm text-muted-foreground font-medium">Open HR Queries</p>
+                      <p className="text-4xl font-bold text-orange-600">3</p>
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
           </div>
