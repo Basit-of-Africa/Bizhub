@@ -223,21 +223,23 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       </Sidebar>
       <SidebarInset>
         <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b bg-background/80 px-4 backdrop-blur-sm sm:h-16 sm:px-6">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
             <SidebarTrigger className="md:hidden" />
             <div className="hidden md:flex items-center relative w-64">
                <Search className="absolute left-2 h-4 w-4 text-muted-foreground" />
                <Input className="pl-8 h-8 bg-muted/50 border-none text-xs" placeholder="Search OS..." />
             </div>
-            <Badge variant="outline" className="hidden sm:flex border-primary/20 bg-primary/5 text-primary text-[10px] font-bold uppercase tracking-widest px-2 py-0">
-              {role} Clearance
+            <Badge variant="outline" className="flex border-primary/20 bg-primary/5 text-primary text-[9px] sm:text-[10px] font-bold uppercase tracking-widest px-1.5 sm:px-2 py-0">
+              {role.split(' ')[0]} Clearance
             </Badge>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button size="sm" className="h-8 font-bold text-[10px] uppercase tracking-wider">
-                  Quick Create <ChevronDown className="ml-1 h-3 w-3" />
+                <Button size="sm" className="h-8 font-bold text-[9px] sm:text-[10px] uppercase tracking-wider px-2 sm:px-3">
+                  <span className="hidden xs:inline">Quick Create</span>
+                  <Plus className="xs:hidden h-4 w-4" />
+                  <ChevronDown className="ml-1 h-3 w-3 hidden xs:inline" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">

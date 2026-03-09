@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { Transaction } from '@/lib/types';
@@ -27,42 +28,54 @@ export default function TransactionsTable({ transactions }: TransactionsTablePro
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
-      month: 'long',
+      month: 'short',
       day: 'numeric',
     });
   };
 
   return (
-    <div className="rounded-lg border">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Type</TableHead>
-            <TableHead>Description</TableHead>
-            <TableHead>Category</TableHead>
-            <TableHead>Date</TableHead>
-            <TableHead className="text-right">Amount</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {transactions.map((transaction) => (
-            <TableRow key={transaction.id}>
-              <TableCell>
-                <Badge variant={transaction.type === 'income' ? 'default' : 'destructive'} className="capitalize">
-                  {transaction.type}
-                </Badge>
-              </TableCell>
-              <TableCell className="font-medium">{transaction.description}</TableCell>
-              <TableCell>{transaction.category}</TableCell>
-              <TableCell>{formatDate(transaction.date)}</TableCell>
-              <TableCell className={cn("text-right font-mono", transaction.type === 'income' ? 'text-green-600' : 'text-red-600')}>
-                {transaction.type === 'income' ? '+' : '-'}
-                {formatCurrency(transaction.amount)}
-              </TableCell>
+    <div className="rounded-lg border overflow-hidden">
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[100px]">Type</TableHead>
+              <TableHead>Description</TableHead>
+              <TableHead className="hidden md:table-cell">Category</TableHead>
+              <TableHead>Date</TableHead>
+              <TableHead className="text-right">Amount</TableHead>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHeader>
+          <TableBody>
+            {transactions.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                  No transactions found.
+                </TableCell>
+              </TableRow>
+            ) : (
+              transactions.map((transaction) => (
+                <TableRow key={transaction.id}>
+                  <TableCell>
+                    <Badge variant={transaction.type === 'income' ? 'default' : 'destructive'} className="capitalize text-[10px]">
+                      {transaction.type}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="font-medium max-w-[150px] sm:max-w-none truncate">
+                    {transaction.description}
+                  </TableCell>
+                  <TableCell className="hidden md:table-cell">{transaction.category}</TableCell>
+                  <TableCell className="whitespace-nowrap text-xs">{formatDate(transaction.date)}</TableCell>
+                  <TableCell className={cn("text-right font-mono text-sm font-bold", transaction.type === 'income' ? 'text-green-600' : 'text-red-600')}>
+                    {transaction.type === 'income' ? '+' : '-'}
+                    {formatCurrency(transaction.amount)}
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }
