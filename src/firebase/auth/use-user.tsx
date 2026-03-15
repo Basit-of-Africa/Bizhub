@@ -27,6 +27,9 @@ export function useUser() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Snappy transition for demo purposes
+  const isDemo = typeof window !== 'undefined' && !window.localStorage.getItem('vela_signed_in');
+
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, (u) => {
       setUser(u);
@@ -103,13 +106,16 @@ export function useUser() {
         setupCompleted: profile?.setupCompleted ?? true,
       };
     }
-    // Demo Mode: Super Admin access
+    // Demo Mode fallback
     return MOCK_USER;
   }, [user, profile]);
+
+  // Adjust loading state for snappy demo start
+  const finalLoading = user === null && isDemo ? false : loading;
 
   return { 
     user: currentUser, 
     role: (currentUser?.role || 'Staff') as UserRole,
-    loading: loading 
+    loading: finalLoading 
   };
 }

@@ -60,6 +60,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
+import { Skeleton } from "@/components/ui/skeleton"
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -123,14 +124,6 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 
   const filteredSections = sections.filter(section => section.roles.includes(role))
 
-  if (loading) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <Loader2 className="h-10 w-10 animate-spin text-primary" />
-      </div>
-    )
-  }
-
   return (
     <SidebarProvider>
       <Sidebar>
@@ -149,34 +142,50 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                    <div className="p-2 bg-primary rounded-md">
                       <Building2 className="h-4 w-4 text-primary-foreground" />
                    </div>
-                   <div className="overflow-hidden">
+                   <div className="overflow-hidden flex-1">
                       <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground truncate">Organization</p>
-                      <p className="text-sm font-bold truncate">{user?.businessName || "Acme Corp"}</p>
+                      {loading ? (
+                        <Skeleton className="h-4 w-24 mt-1" />
+                      ) : (
+                        <p className="text-sm font-bold truncate">{user?.businessName || "Acme Corp"}</p>
+                      )}
                    </div>
                 </div>
              </div>
           </SidebarGroup>
-          {filteredSections.map((section) => (
-            <SidebarGroup key={section.label}>
-              <SidebarGroupLabel>{section.label}</SidebarGroupLabel>
-              <SidebarMenu>
-                {section.items.map((item) => (
-                  <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={pathname === item.href}
-                      tooltip={item.label}
-                    >
-                      <Link href={item.href}>
-                        {item.icon}
-                        <span>{item.label}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroup>
-          ))}
+          {loading ? (
+            <div className="px-4 space-y-4">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="space-y-2">
+                  <Skeleton className="h-3 w-16" />
+                  <Skeleton className="h-8 w-full" />
+                  <Skeleton className="h-8 w-full" />
+                </div>
+              ))}
+            </div>
+          ) : (
+            filteredSections.map((section) => (
+              <SidebarGroup key={section.label}>
+                <SidebarGroupLabel>{section.label}</SidebarGroupLabel>
+                <SidebarMenu>
+                  {section.items.map((item) => (
+                    <SidebarMenuItem key={item.href}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={pathname === item.href}
+                        tooltip={item.label}
+                      >
+                        <Link href={item.href}>
+                          {item.icon}
+                          <span>{item.label}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroup>
+            ))
+          )}
         </SidebarContent>
         <SidebarFooter>
           <SidebarMenu>
@@ -184,11 +193,11 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                 <div className="flex items-center gap-2 p-2 bg-primary/5 border border-primary/20 rounded-md">
                    <Globe className="h-3 w-3 text-primary" />
                    <span className="text-[10px] font-bold uppercase tracking-tighter truncate">
-                     Instance: {user?.uid.slice(0, 8)}...
+                     Instance: {loading ? "..." : user?.uid.slice(0, 8)}...
                    </span>
                 </div>
              </SidebarMenuItem>
-            {["Super Admin", "Admin"].includes(role) && (
+            {["Super Admin", "Admin"].includes(role) && !loading && (
               <SidebarMenuItem>
                 <SidebarMenuButton asChild tooltip="Settings" isActive={pathname === "/settings"}>
                   <Link href="/settings">
@@ -201,20 +210,32 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
             <SidebarMenuItem>
               <div className="flex flex-col gap-2 p-2 border rounded-lg bg-muted/20 mx-2 mb-2">
                 <div className="flex items-center gap-2">
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={user?.photoURL || undefined} />
-                    <AvatarFallback>{user?.displayName?.[0] || user?.email?.[0] || 'V'}</AvatarFallback>
-                  </Avatar>
+                  {loading ? (
+                    <Skeleton className="h-8 w-8 rounded-full" />
+                  ) : (
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={user?.photoURL || undefined} />
+                      <AvatarFallback>{user?.displayName?.[0] || user?.email?.[0] || 'V'}</AvatarFallback>
+                    </Avatar>
+                  )}
                   <div className="flex-1 overflow-hidden">
-                    <p className="text-sm font-medium truncate">{user?.displayName || "User"}</p>
-                    <div className="flex items-center gap-1">
-                      <ShieldCheck className="h-3 w-3 text-primary" />
-                      <span className="text-[10px] font-bold text-primary uppercase">{role}</span>
-                    </div>
+                    {loading ? (
+                      <Skeleton className="h-3 w-20" />
+                    ) : (
+                      <>
+                        <p className="text-sm font-medium truncate">{user?.displayName || "User"}</p>
+                        <div className="flex items-center gap-1">
+                          <ShieldCheck className="h-3 w-3 text-primary" />
+                          <span className="text-[10px] font-bold text-primary uppercase">{role}</span>
+                        </div>
+                      </>
+                    )}
                   </div>
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleSignOut}>
-                    <LogOut className="h-4 w-4 text-muted-foreground" />
-                  </Button>
+                  {!loading && (
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleSignOut}>
+                      <LogOut className="h-4 w-4 text-muted-foreground" />
+                    </Button>
+                  )}
                 </div>
               </div>
             </SidebarMenuItem>
@@ -229,46 +250,52 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                <Search className="absolute left-2 h-4 w-4 text-muted-foreground" />
                <Input className="pl-8 h-8 bg-muted/50 border-none text-xs" placeholder="Search OS..." />
             </div>
-            <Badge variant="outline" className="flex border-primary/20 bg-primary/5 text-primary text-[9px] sm:text-[10px] font-bold uppercase tracking-widest px-1.5 sm:px-2 py-0">
-              {role.split(' ')[0]} Clearance
-            </Badge>
+            {!loading && (
+              <Badge variant="outline" className="flex border-primary/20 bg-primary/5 text-primary text-[9px] sm:text-[10px] font-bold uppercase tracking-widest px-1.5 sm:px-2 py-0">
+                {role.split(' ')[0]} Clearance
+              </Badge>
+            )}
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button size="sm" className="h-8 font-bold text-[9px] sm:text-[10px] uppercase tracking-wider px-2 sm:px-3">
-                  <span className="hidden xs:inline">Quick Create</span>
-                  <Plus className="xs:hidden h-4 w-4" />
-                  <ChevronDown className="ml-1 h-3 w-3 hidden xs:inline" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem asChild>
-                   <Link href="/crm/pipeline" className="flex items-center gap-2 cursor-pointer">
-                      <TrendingUp className="h-4 w-4 text-primary" /> Add Sales Deal
-                   </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                   <Link href="/crm/customers" className="flex items-center gap-2 cursor-pointer">
-                      <UserPlus className="h-4 w-4 text-blue-500" /> New Customer
-                   </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                   <Link href="/transactions" className="flex items-center gap-2 cursor-pointer">
-                      <ArrowLeftRight className="h-4 w-4 text-green-500" /> Log Transaction
-                   </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                   <Link href="/hr/employees" className="flex items-center gap-2 cursor-pointer">
-                      <Users className="h-4 w-4 text-indigo-500" /> Provision Team
-                   </Link>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {!loading && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button size="sm" className="h-8 font-bold text-[9px] sm:text-[10px] uppercase tracking-wider px-2 sm:px-3">
+                    <span className="hidden xs:inline">Quick Create</span>
+                    <Plus className="xs:hidden h-4 w-4" />
+                    <ChevronDown className="ml-1 h-3 w-3 hidden xs:inline" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem asChild>
+                    <Link href="/crm/pipeline" className="flex items-center gap-2 cursor-pointer">
+                        <TrendingUp className="h-4 w-4 text-primary" /> Add Sales Deal
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/crm/customers" className="flex items-center gap-2 cursor-pointer">
+                        <UserPlus className="h-4 w-4 text-blue-500" /> New Customer
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/transactions" className="flex items-center gap-2 cursor-pointer">
+                        <ArrowLeftRight className="h-4 w-4 text-green-500" /> Log Transaction
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/hr/employees" className="flex items-center gap-2 cursor-pointer">
+                        <Users className="h-4 w-4 text-indigo-500" /> Provision Team
+                    </Link>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
             <ModeToggle />
           </div>
         </header>
-        <main className="flex-1 overflow-auto p-4 sm:p-6">{children}</main>
+        <main className="flex-1 overflow-auto p-4 sm:p-6">
+          {children}
+        </main>
       </SidebarInset>
     </SidebarProvider>
   )
